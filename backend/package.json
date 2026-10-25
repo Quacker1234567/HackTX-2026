@@ -1,0 +1,13 @@
+{
+  "name": "flow-backend",
+  "private": true,
+  "type": "module",
+  "main": "src/index.mjs",
+  "engines": { "node": "22" },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start:local": "node --env-file=.env.hacktx26 --env-file=.env.local scripts/start-local.mjs",
+    "seed": "node --env-file=.env.local scripts/seed.mjs"
+  },
+  "dependencies": { "firebase-functions": "^6.0.0", "firebase-admin": "^13.10.0" }
+}

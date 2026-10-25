@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Flow",
+    "slug": "flow-budget",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.quacker1234567.flowbudget"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "flow",
+    "plugins": [
+      "expo-router",
+      "expo-status-bar"
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a813060c-6386-45db-954c-1714fd977187"
+      }
+    }
+  }
+}

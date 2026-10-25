@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+.firebase/
+firebase-debug.log
+.env.*
+!.env.example
+!.env.local.example
+.secret.local
+.seed-state.json
+.funded-demo-state.json
+.claude/
