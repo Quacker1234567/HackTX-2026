@@ -7,7 +7,7 @@ const customerId = defineString('NESSIE_CUSTOMER_ID', { default: '' });
 const allowedUids = defineString('NESSIE_ALLOWED_UIDS', { default: '' });
 const options = { region: 'us-central1', secrets: [apiKey], maxInstances: 2, timeoutSeconds: 120, cors: true };
 
-function authorize(request) {
+export function authorize(request) {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in to Firebase first.');
   // The backend key owns a shared mock dataset. Limit it to explicitly allowed testers.
   const allowed = allowedUids.value().split(',').map(s => s.trim()).filter(Boolean);

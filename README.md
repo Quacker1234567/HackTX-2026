@@ -232,12 +232,19 @@ URL if changed, then choose Option A or Option B.
 
 ## Current demo limits
 
+**New:** [Nessie transaction demo](docs/transaction-demo.md) explains
+Tools → Nessie purchase, confirmed sandbox writes, retries, and bank refresh.
+Restart the backend to load this endpoint. Keep its ignored `.purchase-journal/`
+directory across restarts; it also tracks purchases absent from the reported balance.
+
 - Purchases and deposits import from Nessie. The current bill-read endpoint has
   a schema error. Banking offers an explicitly confirmed manual bill list and
   labels it accordingly; budget approval stays blocked until bills are reviewed.
 - Checkout confirmation currently changes local demo state. It does not submit
   a new purchase to Nessie or process a real payment. Reach checkout from
-  **Tools → Test a purchase**, not from Home category cards.
+  **Tools → Test a purchase**, not from Home category cards. The separate
+  **Tools → Nessie purchase** screen creates verified sandbox transactions
+  using whole-dollar amounts.
 - Settings preferences persist only on this device. Hide balances replaces
   dollar amounts with dots; purchase alerts and goal reminders do not send
   notifications yet.

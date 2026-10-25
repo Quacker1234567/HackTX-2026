@@ -9,6 +9,7 @@ const tools = [
   { path: '/banking', name: 'Banking', description: 'Accounts, spending patterns and budget plans', icon: 'bank' },
   { path: '/connections', name: 'Connections', description: 'Nessie import, Firebase and ESP32 display', icon: 'tools' },
   { path: '/checkout', name: 'Test a purchase', description: 'Simulate a location, preview and confirm spending', icon: 'purchase' },
+  { path: '/nessie-purchase', name: 'Nessie purchase', description: 'Create a sandbox transaction and refresh bank history', icon: 'purchase' },
   { path: '/transactions', name: 'Transaction history', description: 'Imported purchases, income and local demo activity', icon: 'history' },
 ] as const;
 const locations = [
@@ -46,6 +47,6 @@ export default function Tools() {
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.notice}>{message}</Text>}
     </View>
     <View style={[styles.panel, { padding: 0, overflow: 'hidden' }]}>{tools.map((tool, index) => <Pressable key={tool.path} accessibilityRole="button" onPress={() => router.navigate(tool.path)} android_ripple={{ color: '#E6F0F7' }} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: index ? 1 : 0, borderTopColor: colors.paper }}><Icon name={tool.icon as IconName} /><View style={{ flex: 1, gap: 5 }}><Text style={styles.heading}>{tool.name}</Text><Text style={{ color: colors.muted, lineHeight: 20, fontSize: 14 }}>{tool.description}</Text></View><Icon name="arrow" size={18} color={colors.muted} /></Pressable>)}</View>
-    <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 21 }}>Nessie uses sample financial data. Purchase previews update this device’s demo budget; they do not send payments. Simulation manager does not talk to hardware yet.</Text>
+    <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 21 }}>Nessie uses sample financial data. Test a purchase changes local state only; Nessie purchase writes a sandbox transaction. Neither sends real payments. Simulation manager does not talk to hardware yet.</Text>
   </Screen>;
 }

@@ -9,11 +9,12 @@ export type BankSnapshot = {
   warnings: string[];
   billSource?: 'nessie' | 'manual';
   billReviewRequired?: boolean;
+  unreflectedPurchaseCents?: number;
 };
 export type Preferences = { payday: string; diningReduction: number; protectedCategory: string };
 export type BudgetProposal = {
   snapshotAt: string; accountId: string; payday: string; days: number;
-  balanceCents: number; billsCents: number; savingsCents: number; availableCents: number;
+  balanceCents: number; billsCents: number; savingsCents: number; availableCents: number; unallocatedCents: number;
   allocations: { id: string; name: string; limit: number; spent: number }[];
   warnings: string[]; canApprove: boolean;
 };
@@ -61,7 +62,9 @@ export function proposeBudget(bank: BankSnapshot, goal: { target: number; saved:
   if (activeBills.some(b => !b.date || b.date < today)) warnings.push('Some active bills have missing or past dates. Update those bills in Nessie before approving.');
   const billsCents = total(activeBills.filter(b => b.date && b.date <= preferences.payday));
   const savingsCents = goal.days > 0 ? Math.min(Math.max(0, goal.target - goal.saved), Math.ceil(Math.max(0, goal.target - goal.saved) * Math.max(0, days) / goal.days)) : 0;
-  const availableCents = bank.account.balanceCents - billsCents - savingsCents;
+  const unreflected = bank.unreflectedPurchaseCents ?? 0;
+  if (!Number.isSafeInteger(unreflected) || unreflected < 0) warnings.push('The purchase reserve is invalid. Refresh bank data before approving.');
+  const availableCents = bank.account.balanceCents - (Number.isSafeInteger(unreflected) && unreflected >= 0 ? unreflected : 0) - billsCents - savingsCents;
   if (availableCents < 0) warnings.push('The account balance cannot cover bills and the requested savings pace. Adjust the goal or payday.');
   const history = analyzeHistory(bank, now);
   if (history.count < 5) warnings.push('Import at least five completed purchases from the last 90 days before generating a history-based plan.');
@@ -73,11 +76,16 @@ export function proposeBudget(bank: BankSnapshot, goal: { target: number; saved:
   const others = needs.filter(n => n.id !== preferences.protectedCategory);
   const denominator = total(others);
   const free = available - protectedReserve;
-  const scale = denominator > 0 ? Math.min(1, free / denominator) : 0;
+  // Historical pace is a ceiling, not a target. Funds beyond it stay unallocated
+  // rather than inflating every category or silently collecting in Other.
+  const constrained = denominator > 0 && free < denominator;
+  const scale = constrained ? free / denominator : 1;
   const allocations = needs.map(n => ({ id: n.id, name: categoryNames[n.id], spent: 0, limit: n.id === preferences.protectedCategory ? protectedReserve : Math.floor(n.cents * scale) }));
-  const remainder = available - allocations.reduce((sum, c) => sum + c.limit, 0);
-  allocations.find(c => c.id === 'other')!.limit += remainder;
-  return { snapshotAt: bank.importedAt, accountId: bank.account.id, payday: preferences.payday, days, balanceCents: bank.account.balanceCents, billsCents, savingsCents, availableCents, allocations, warnings, canApprove: warnings.length === 0 };
+  const assigned = () => allocations.reduce((sum, c) => sum + c.limit, 0);
+  // Only the rounding dust left by scaling down belongs in a category.
+  if (constrained) allocations.find(c => c.id === 'other')!.limit += available - assigned();
+  const unallocatedCents = available - assigned();
+  return { snapshotAt: bank.importedAt, accountId: bank.account.id, payday: preferences.payday, days, balanceCents: bank.account.balanceCents, billsCents, savingsCents, availableCents, unallocatedCents, allocations, warnings, canApprove: warnings.length === 0 };
 }
 export function estimateAtMerchant(bank: BankSnapshot, merchantId: string) {
   const history = bank.purchases.filter(p => p.merchantId === merchantId && p.status === 'completed' && p.cents > 0).map(p => p.cents).sort((a, b) => a - b);

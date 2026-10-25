@@ -8,7 +8,7 @@ export default function Transactions() {
   const { budget } = useBudget();
   const [filter, setFilter] = useState('All');
   const rows = [
-    ...budget.transactions.map(t => ({ id: `local-${t.id}`, name: t.merchant, cents: -t.cents, date: t.createdAt, source: 'Local demo', status: 'confirmed' })),
+    ...budget.transactions.filter(t => !t.nessiePurchaseId || !budget.bank?.purchases.some(p => p.id === t.nessiePurchaseId)).map(t => ({ id: `local-${t.id}`, name: t.merchant, cents: -t.cents, date: t.createdAt, source: t.nessiePurchaseId ? 'Nessie' : 'Local demo', status: t.nessiePurchaseId ? 'created; refresh pending' : 'confirmed' })),
     ...(budget.bank?.purchases ?? []).map(t => ({ id: `purchase-${t.id}`, name: t.merchant, cents: -t.cents, date: t.date, source: 'Nessie', status: t.status })),
     ...(budget.bank?.deposits ?? []).map(t => ({ id: `deposit-${t.id}`, name: t.description || 'Deposit', cents: t.cents, date: t.date, source: 'Nessie', status: t.status })),
   ].filter(t => filter === 'All' || t.source === filter).sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));

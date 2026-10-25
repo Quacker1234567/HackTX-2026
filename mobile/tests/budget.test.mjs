@@ -41,3 +41,33 @@ test('allocation edits preserve spending, history and goal while rejecting unsaf
   assert.throws(() => editLimits(planned, { dining: 25000, groceries: 30000, transport: 10000 }));
   assert.equal(editLimits(planned, { dining: 20000, groceries: 30000, transport: 10000 }).categories[0].limit, 20000);
 });
+
+const bankFixture = () => ({ source: 'nessie', importedAt: '2026-10-24T12:00:00Z', account: { id: 'account-1', balanceCents: 50000 }, purchases: [], deposits: [], bills: [], merchants: [], warnings: [] });
+const remoteTransaction = () => ({ id: 'request-1', categoryId: 'dining', merchant: 'Cafe', cents: 3500, createdAt: '2026-10-24T12:01:00Z', nessiePurchaseId: 'remote-1', accountId: 'account-1' });
+test('a Nessie receipt refreshes the bank and reduces a category only once across retries', async () => {
+  const { reconcileNessiePurchase } = await import('../src/domain/budget.ts');
+  const initial = { ...seedBudget(), bank: bankFixture() };
+  const fresh = { ...bankFixture(), importedAt: '2026-10-24T12:02:00Z', account: { id: 'account-1', balanceCents: 46500 }, purchases: [{ id: 'remote-1', cents: 3500 }] };
+  const next = reconcileNessiePurchase(initial, remoteTransaction(), fresh);
+  assert.equal(next.categories[0].spent, 19300);
+  assert.equal(next.bank.account.balanceCents, 46500);
+  assert.equal(next.transactions.length, 1);
+  assert.equal(reconcileNessiePurchase(next, remoteTransaction(), fresh), next);
+  assert.equal(initial.categories[0].spent, 15800);
+});
+test('a new approved plan already containing a remote purchase does not subtract it again', async () => {
+  const { reconcileNessiePurchase } = await import('../src/domain/budget.ts');
+  const bank = { ...bankFixture(), purchases: [{ id: 'remote-1', cents: 3500 }] };
+  const initial = { ...seedBudget(), bank, plan: { snapshotAt: bank.importedAt }, categories: [{ id: 'dining', name: 'Dining', limit: 10000, spent: 0 }] };
+  const next = reconcileNessiePurchase(initial, remoteTransaction(), bank);
+  assert.equal(next.categories[0].spent, 0);
+  assert.equal(next.transactions.length, 1);
+});
+test('refresh failure retains a receipt and prior bank data; mismatched accounts cannot apply', async () => {
+  const { reconcileNessiePurchase } = await import('../src/domain/budget.ts');
+  const initial = { ...seedBudget(), bank: bankFixture() };
+  const next = reconcileNessiePurchase(initial, remoteTransaction(), null);
+  assert.equal(next.categories[0].spent, 19300); assert.equal(next.bank, initial.bank);
+  assert.throws(() => reconcileNessiePurchase(initial, { ...remoteTransaction(), accountId: 'different-account' }, null));
+  assert.throws(() => reconcileNessiePurchase(initial, remoteTransaction(), { ...bankFixture(), account: { id: 'different-account' } }));
+});
