@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Icon, Screen } from '../components/design';
 import { colors, styles } from '../components/ui';
-import { displayMoney, parseMoney } from '../domain/budget';
+import { categoriesWithSpend, displayMoney, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
 export default function BudgetScreen() {
   const { budget, settings, ready, setLimits } = useBudget();
+  const categories = categoriesWithSpend(budget);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
@@ -16,7 +17,7 @@ export default function BudgetScreen() {
     const cents = /^0(?:\.0{1,2})?$/.test(text) ? 0 : parseMoney(text);
     if (cents === null) { setMessage('Enter valid dollar amounts with up to two decimal places.'); return false; }
     try {
-      setLimits(Object.fromEntries(budget.categories.map(category => [category.id, category.id === editingId ? cents : category.limit])));
+      setLimits(Object.fromEntries(categories.map(category => [category.id, category.id === editingId ? cents : category.limit])));
       setEditingId(null);
       setMessage('');
       return true;
@@ -26,7 +27,7 @@ export default function BudgetScreen() {
     }
   };
   return <Screen title="Budget" subtitle="Make room for what matters to you.">
-    {!ready ? <Text style={styles.body}>Loading your allocations…</Text> : <View style={[styles.panel, { padding: 0, overflow: 'hidden' }]}>{budget.categories.map((category, index) => <View key={category.id} style={{ padding: 20, borderTopWidth: index ? 1 : 0, borderTopColor: colors.paper }}>
+    {!ready ? <Text style={styles.body}>Loading your allocations…</Text> : <View style={[styles.panel, { padding: 0, overflow: 'hidden' }]}>{categories.map((category, index) => <View key={category.id} style={{ padding: 20, borderTopWidth: index ? 1 : 0, borderTopColor: colors.paper }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <Text style={[styles.heading, { flexShrink: 1 }]}>{category.name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -44,7 +45,15 @@ export default function BudgetScreen() {
           </Pressable>
         </View>
       </View>
+      <Text style={[styles.body, { marginTop: 6 }]}>{displayMoney(category.spent, settings.hideBalances)} spent this month{category.spent > category.limit ? ' · over budget' : ''}</Text>
     </View>)}</View>}
+    {!!budget.plan && ready && <View style={styles.panel}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+        <Text style={[styles.heading, { flexShrink: 1 }]}>Unallocated</Text>
+        <Text style={{ fontSize: 20, color: colors.ink }}>{displayMoney(Math.max(0, budget.plan.availableCents - budget.categories.reduce((sum, c) => sum + c.limit, 0)), settings.hideBalances)}</Text>
+      </View>
+      <Text style={styles.body}>Available after bills and savings, but not assigned to a category. Your plan caps each category at its recent spending pace, so anything beyond that waits here. Raise a limit above to use it.</Text>
+    </View>}
     {!!message && <Text accessibilityLiveRegion="polite" style={styles.notice}>{message}</Text>}
   </Screen>;
 }

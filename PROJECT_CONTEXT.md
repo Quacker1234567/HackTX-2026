@@ -52,9 +52,6 @@ reload/rebuild; browser previews cannot verify the system bar.
   only. Confirmed spending updates the budget once in either mode.
 - **Tools → Transaction history:** imported purchases/deposits and local confirmed
   purchases, with source filters and status labels.
-- **Tools → Nessie purchase:** confirmed whole-dollar sandbox writes, durable
-  request/receipt recovery, verified stored amounts, bank refresh and once-only
-  category updates. See [transaction-demo.md](docs/transaction-demo.md).
 - Budget state and device settings are saved on the device with AsyncStorage
   (separate keys). Imported history remains available after the backend stops.
   Firestore saving is manual; there is no automatic cloud restore or
@@ -228,14 +225,15 @@ not bills written to Nessie.
 
 1. **Check on Android:** run the latest UI on a real device; verify keyboard,
    system back navigation, small screens, and the complete import/demo flow.
-2. **Nessie transaction follow-up:** checkout and the separate Nessie purchase
-   screen both write and verify sandbox transactions through `useNessiePurchase`.
-   A live $1 purchase and replay were checked; the physical Android HTTP flow
-   still needs testing, and reconciliation has not been exercised live. Whole
+2. **Nessie transaction follow-up:** checkout writes and verifies sandbox
+   transactions through `useNessiePurchase`.
+   Purchase creation and reconciliation were both verified from Expo Go on a
+   physical Android device through the tunnel, including rehearsal mode. Whole
    dollars are required because this sandbox truncates cents. It also leaves its
    reported balance unchanged, so verified Flow debits reserve funds until
    reviewed in Banking as settled or rehearsal. Preserve the backend purchase
    journal; it is the only record of which debits the balance never reflected.
+   Remaining work here is a shared durable journal before any hosted deployment.
 3. **ESP32 firmware:** implement the documented Wi-Fi endpoint and display. Sending
    Dining manually is implemented; automatic updates, preview synchronization,
    device-button confirmation and presence detection are not. Verify Android LAN
@@ -281,7 +279,9 @@ display name and hide-balances, and Tools navigation. Home category cards are
 display-only; checkout is reached from Tools. ESP32 firmware and the redesigned
 UI on physical Android remain unverified.
 
-Transaction update: 19 mobile tests and 27 backend tests passed.
+Transaction update: 19 mobile tests and 27 backend tests passed. The purchase
+and reconciliation flows were verified end to end from Expo Go on a physical
+Android device; see [transaction-demo.md](docs/transaction-demo.md).
 
 Reviewing a reserve in Banking releases it: **settled** means the reported
 balance now accounts for the purchase and it keeps informing category pacing;

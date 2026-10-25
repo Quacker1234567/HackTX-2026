@@ -233,7 +233,7 @@ URL if changed, then choose Option A or Option B.
 ## Current demo limits
 
 **New:** [Nessie transaction demo](docs/transaction-demo.md) explains
-Tools → Nessie purchase, confirmed sandbox writes, retries, and bank refresh.
+Tools → Test a purchase, confirmed sandbox writes, retries, and bank refresh.
 Restart the backend to load this endpoint. Keep its ignored `.purchase-journal/`
 directory across restarts; it also tracks purchases absent from the reported balance.
 

@@ -14,6 +14,38 @@ export const seedBudget = (): Budget => ({
   goal: { name: 'Emergency fund', target: 100000, saved: 25000, days: 90 },
 });
 export const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+// Spending for the current calendar month: imported Nessie purchases plus local
+// rehearsal activity, deduplicated by Nessie ID and excluding voided rehearsals.
+// Without an imported bank there is nothing to derive from, so the stored demo
+// figures stand and UI-only development keeps working.
+export function monthSpentByCategory(state: Budget, now = new Date()): Record<string, number> {
+  const totals: Record<string, number> = {};
+  const add = (categoryId: string, cents: number) => { totals[categoryId] = (totals[categoryId] ?? 0) + cents; };
+  if (!state.bank) {
+    for (const category of state.categories) add(category.id, category.spent);
+    return totals;
+  }
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const voided = new Set(state.bank.voidedPurchaseIds ?? []);
+  const counted = new Set<string>();
+  for (const purchase of state.bank.purchases) {
+    if (purchase.status !== 'completed' || !purchase.date || purchase.date.slice(0, 7) !== month) continue;
+    if (voided.has(purchase.id) || purchase.cents < 0 || counted.has(purchase.id)) continue;
+    counted.add(purchase.id);
+    add(purchase.categoryId, purchase.cents);
+  }
+  for (const transaction of state.transactions) {
+    if (transaction.createdAt.slice(0, 7) !== month) continue;
+    // A confirmed Flow purchase is already in the imported history, or was released.
+    if (transaction.nessiePurchaseId && (counted.has(transaction.nessiePurchaseId) || voided.has(transaction.nessiePurchaseId))) continue;
+    add(transaction.categoryId, transaction.cents);
+  }
+  return totals;
+}
+export function categoriesWithSpend(state: Budget, now = new Date()): Category[] {
+  const spent = monthSpentByCategory(state, now);
+  return state.categories.map(category => ({ ...category, spent: spent[category.id] ?? 0 }));
+}
 export const displayMoney = (cents: number, hide: boolean) => hide ? '••••' : money(cents);
 export function parseMoney(value: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) return null;
@@ -24,14 +56,17 @@ export function commitPurchase(state: Budget, transaction: Transaction): Budget 
   if (state.transactions.some(t => t.id === transaction.id)) return state;
   const category = state.categories.find(c => c.id === transaction.categoryId);
   if (!category || !Number.isSafeInteger(transaction.cents) || transaction.cents <= 0) throw new Error('Enter a valid purchase amount.');
-  if (transaction.cents > category.limit - category.spent) throw new Error('This purchase exceeds the category balance. Choose a smaller amount.');
+  const spent = monthSpentByCategory(state)[category.id] ?? 0;
+  if (transaction.cents > category.limit - spent) throw new Error('This purchase exceeds the category balance. Choose a smaller amount.');
   return { ...state, categories: state.categories.map(c => c.id === category.id ? { ...c, spent: c.spent + transaction.cents } : c), transactions: [transaction, ...state.transactions] };
 }
 export const dailyGoalReserve = (goal: Budget['goal']) => Math.ceil(Math.max(0, goal.target - goal.saved) / goal.days);
 export function editLimits(state: Budget, limits: Record<string, number>): Budget {
+  const spent = monthSpentByCategory(state);
   const categories = state.categories.map(category => {
     const limit = limits[category.id];
-    if (!Number.isSafeInteger(limit) || limit < category.spent || limit < 0) throw new Error(`${category.name} must cover its ${money(category.spent)} already spent.`);
+    const alreadySpent = spent[category.id] ?? 0;
+    if (!Number.isSafeInteger(limit) || limit < alreadySpent || limit < 0) throw new Error(`${category.name} must cover its ${money(alreadySpent)} already spent.`);
     return { ...category, limit };
   });
   const total = categories.reduce((sum, category) => sum + category.limit, 0);

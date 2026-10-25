@@ -33,7 +33,7 @@ export default function Layout() {
     <Tabs.Screen name="budget" options={{ title: 'Budget' }} />
     <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     <Tabs.Screen name="tools" options={{ title: 'Tools' }} />
-    {(['banking', 'connections', 'checkout', 'transactions', 'nessie-purchase'] as const).map(name => <Tabs.Screen key={name} name={name} options={{ headerShown: true, title: name === 'checkout' ? 'Test a purchase' : name === 'nessie-purchase' ? 'Nessie purchase' : name.charAt(0).toUpperCase() + name.slice(1), headerLeft: () => <Pressable accessibilityRole="button" accessibilityLabel="Back to Tools" onPress={() => router.navigate('/tools')} style={{ padding: 16 }}><Text style={{ color: colors.blue }}>‹ Tools</Text></Pressable> }} />)}
+    {(['banking', 'connections', 'checkout', 'transactions'] as const).map(name => <Tabs.Screen key={name} name={name} options={{ headerShown: true, title: name === 'checkout' ? 'Test a purchase' : name.charAt(0).toUpperCase() + name.slice(1), headerLeft: () => <Pressable accessibilityRole="button" accessibilityLabel="Back to Tools" onPress={() => router.navigate('/tools')} style={{ padding: 16 }}><Text style={{ color: colors.blue }}>‹ Tools</Text></Pressable> }} />)}
   </Tabs></BudgetProvider>;
 }
 

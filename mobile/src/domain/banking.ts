@@ -15,9 +15,18 @@ export type BankSnapshot = {
   // Verified Flow purchases still awaiting review, for the reconciliation list.
   flowDebits?: { purchaseId: string; amountCents: number; date: string | null }[];
 };
-export type Preferences = { payday: string; diningReduction: number; protectedCategory: string };
+export type Preferences = { diningReduction: number; protectedCategory: string };
+export const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+export const monthLabel = (date: Date) => date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+// Budgets run over a calendar month so that limits and month-to-date spending
+// cover the same window, and the period resets on its own.
+export function monthBounds(now: Date) {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 12);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 12);
+  return { start: dayKey(start), end: dayKey(end), days: end.getDate(), label: monthLabel(start) };
+}
 export type BudgetProposal = {
-  snapshotAt: string; accountId: string; payday: string; days: number;
+  snapshotAt: string; accountId: string; periodStart: string; periodEnd: string; periodLabel: string; days: number;
   balanceCents: number; billsCents: number; savingsCents: number; availableCents: number; unallocatedCents: number;
   allocations: { id: string; name: string; limit: number; spent: number }[];
   warnings: string[]; canApprove: boolean;
@@ -58,20 +67,21 @@ export function analyzeHistory(bank: BankSnapshot, now = new Date()) {
 }
 export function proposeBudget(bank: BankSnapshot, goal: { target: number; saved: number; days: number }, preferences: Preferences, now = new Date()): BudgetProposal {
   const today = dayKey(now);
-  const days = validDate(preferences.payday) ? Math.round((Date.parse(preferences.payday) - Date.parse(today)) / 86400000) : 0;
+  const period = monthBounds(now);
+  const days = period.days;
   const warnings = [...bank.warnings];
   if (bank.billReviewRequired && !warnings.some(w => w.startsWith('Nessie bills could not be imported.'))) warnings.push('Review and confirm the complete bill list before approving a budget.');
   const reduction = Number.isFinite(preferences.diningReduction) ? Math.max(0, Math.min(100, preferences.diningReduction)) : 0;
-  if (days < 1 || days > 365) warnings.push('Choose a next payday within the next 365 days.');
   if (!Number.isInteger(preferences.diningReduction) || preferences.diningReduction < 0 || preferences.diningReduction > 100) warnings.push('Dining reduction must be a whole percentage from 0 to 100.');
   const activeBills = unique(bank.bills).filter(b => ['pending', 'recurring'].includes(b.status));
   if (activeBills.some(b => !b.date || b.date < today)) warnings.push('Some active bills have missing or past dates. Update those bills in Nessie before approving.');
-  const billsCents = total(activeBills.filter(b => b.date && b.date <= preferences.payday));
+  // Only bills still to be paid in this month are reserved.
+  const billsCents = total(activeBills.filter(b => b.date && b.date >= today && b.date <= period.end));
   const savingsCents = goal.days > 0 ? Math.min(Math.max(0, goal.target - goal.saved), Math.ceil(Math.max(0, goal.target - goal.saved) * Math.max(0, days) / goal.days)) : 0;
   const unreflected = bank.unreflectedPurchaseCents ?? 0;
   if (!Number.isSafeInteger(unreflected) || unreflected < 0) warnings.push('The purchase reserve is invalid. Refresh bank data before approving.');
   const availableCents = bank.account.balanceCents - (Number.isSafeInteger(unreflected) && unreflected >= 0 ? unreflected : 0) - billsCents - savingsCents;
-  if (availableCents < 0) warnings.push('The account balance cannot cover bills and the requested savings pace. Adjust the goal or payday.');
+  if (availableCents < 0) warnings.push('The account balance cannot cover bills and the requested savings pace. Adjust the goal.');
   const history = analyzeHistory(bank, now);
   if (history.count < 5) warnings.push('Import at least five completed purchases from the last 90 days before generating a history-based plan.');
   const needs = history.byCategory.map(c => ({ ...c, cents: Math.ceil(c.cents * Math.max(0, days) / 90 * (c.id === 'dining' && preferences.protectedCategory !== 'dining' ? 1 - reduction / 100 : 1)) }));
@@ -91,7 +101,7 @@ export function proposeBudget(bank: BankSnapshot, goal: { target: number; saved:
   // Only the rounding dust left by scaling down belongs in a category.
   if (constrained) allocations.find(c => c.id === 'other')!.limit += available - assigned();
   const unallocatedCents = available - assigned();
-  return { snapshotAt: bank.importedAt, accountId: bank.account.id, payday: preferences.payday, days, balanceCents: bank.account.balanceCents, billsCents, savingsCents, availableCents, unallocatedCents, allocations, warnings, canApprove: warnings.length === 0 };
+  return { snapshotAt: bank.importedAt, accountId: bank.account.id, periodStart: period.start, periodEnd: period.end, periodLabel: period.label, days, balanceCents: bank.account.balanceCents, billsCents, savingsCents, availableCents, unallocatedCents, allocations, warnings, canApprove: warnings.length === 0 };
 }
 export function estimateAtMerchant(bank: BankSnapshot, merchantId: string) {
   const history = bank.purchases.filter(p => p.merchantId === merchantId && p.status === 'completed' && p.cents > 0).map(p => p.cents).sort((a, b) => a - b);
