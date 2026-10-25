@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationBar as SystemNavigationBar } from 'expo-navigation-bar';
 import { BudgetProvider } from '../state/BudgetProvider';
+import { HardwareWalletProvider } from '../state/HardwareWalletProvider';
 import { colors, PressScale, radius, shadow, useReduceMotion } from '../components/ui';
 import { Icon, IconName } from '../components/design';
 
@@ -35,7 +36,7 @@ function Navigation() {
 export default function Layout() {
   const { width } = useWindowDimensions();
   const reduced = useReduceMotion();
-  return <BudgetProvider>
+  return <BudgetProvider><HardwareWalletProvider>
     <StatusBar style="dark" />
     {Platform.OS === 'android' && <SystemNavigationBar hidden style="dark" />}
     <View style={{ flex: 1 }}>
@@ -55,5 +56,5 @@ export default function Layout() {
       }} />)}
     </Tabs>
     </View>
-  </BudgetProvider>;
+  </HardwareWalletProvider></BudgetProvider>;
 }

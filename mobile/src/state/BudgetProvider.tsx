@@ -10,6 +10,7 @@ const Context = createContext<{
   budget: Budget; settings: AppSettings; ready: boolean; error: string; purchase: (t: Transaction) => void;
   setGoal: (g: Budget['goal']) => void; reset: () => void;
   saveGoal: (goal: Goal) => Promise<void>; removeGoal: (id: string) => Promise<void>;
+  getBudgetSnapshot: () => Budget;
   setLimits: (limits: Record<string, number>) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
   importBank: (bank: BankSnapshot) => void; approvePlan: (plan: BudgetProposal) => Promise<void>;
@@ -53,6 +54,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     return saved;
   }, []);
   const applyNessiePurchase = useCallback((transaction: Transaction, snapshot: BankSnapshot | null) => change(value => reconcileNessiePurchase(value, transaction, snapshot)), [change]);
+  const getBudgetSnapshot = useCallback(() => current.current, []);
   // Settings use their own key, so their writes are ordered separately from budget writes.
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     if (!initialized.current) return;
@@ -63,6 +65,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     void saved.catch(() => setError('Changes could not be saved on this device.'));
   }, []);
   return <Context.Provider value={{ budget, settings, ready, error,
+    getBudgetSnapshot,
     purchase: t => { void change(value => commitPurchase(value, t)).catch(() => {}); },
     setLimits: limits => { void change(value => editLimits(value, limits)).catch(() => {}); },
     setGoal: goal => { void change(value => ({ ...value, goal, goals: value.goals?.map((g, index) => index === 0 ? { ...g, ...goal } : g) })).catch(() => {}); },
