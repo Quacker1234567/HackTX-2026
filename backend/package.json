@@ -7,7 +7,11 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "start:local": "node --env-file=.env.hacktx26 --env-file=.env.local scripts/start-local.mjs",
-    "seed": "node --env-file=.env.local scripts/seed.mjs"
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "seed:student:plan": "node --experimental-strip-types scripts/seed-student.mjs --plan",
+    "seed:student": "node --experimental-strip-types --env-file=.env.hacktx26 --env-file=.env.local scripts/seed-student.mjs --apply",
+    "seed:student:verify": "node --experimental-strip-types --env-file=.env.hacktx26 --env-file=.env.local scripts/seed-student.mjs --verify",
+    "seed:student:activate": "node --experimental-strip-types --env-file=.env.hacktx26 --env-file=.env.local scripts/seed-student.mjs --activate"
   },
   "dependencies": { "firebase-functions": "^6.0.0", "firebase-admin": "^13.10.0" }
 }

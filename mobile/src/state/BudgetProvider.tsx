@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Budget, commitPurchase, editLimits, reconcileNessiePurchase, seedBudget, Transaction } from '../domain/budget';
+import { applyBudgetPlan, Budget, commitPurchase, editLimits, Goal, normalizeGoals, reconcileNessiePurchase, seedBudget, Transaction } from '../domain/budget';
 import { BankSnapshot, BudgetProposal } from '../domain/banking';
 import { AppSettings, defaultSettings, parseSettings } from '../domain/settings';
 
@@ -9,9 +9,10 @@ const SETTINGS_KEY = 'flow.settings.v1';
 const Context = createContext<{
   budget: Budget; settings: AppSettings; ready: boolean; error: string; purchase: (t: Transaction) => void;
   setGoal: (g: Budget['goal']) => void; reset: () => void;
+  saveGoal: (goal: Goal) => Promise<void>; removeGoal: (id: string) => Promise<void>;
   setLimits: (limits: Record<string, number>) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
-  importBank: (bank: BankSnapshot) => void; approvePlan: (plan: BudgetProposal) => void;
+  importBank: (bank: BankSnapshot) => void; approvePlan: (plan: BudgetProposal) => Promise<void>;
   applyNessiePurchase: (transaction: Transaction, snapshot: BankSnapshot | null) => Promise<void>;
 } | null>(null);
 
@@ -34,7 +35,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       if (!raw) return;
       const data = JSON.parse(raw);
       if (data.version !== 1 || !Array.isArray(data.categories) || !Array.isArray(data.transactions) || !data.goal) throw new Error('Invalid saved data');
-      current.current = data; setBudget(data);
+      const restored = normalizeGoals(data);
+      current.current = restored; setBudget(restored);
     }).catch(() => { if (active) setError('Saved demo could not be loaded. Using starter data.'); }).finally(() => {
       if (active) { initialized.current = true; setReady(true); }
     });
@@ -43,7 +45,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   // Serialize persistence so an older asynchronous write cannot overwrite a newer receipt.
   const change = useCallback((transform: (value: Budget) => Budget) => {
     if (!initialized.current) throw new Error('Wait for your saved budget to load.');
-    const next = transform(current.current);
+    const next = normalizeGoals(transform(current.current));
     current.current = next; setBudget(next);
     const saved = persistence.current.catch(() => {}).then(() => AsyncStorage.setItem(KEY, JSON.stringify(next)));
     persistence.current = saved;
@@ -63,16 +65,25 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   return <Context.Provider value={{ budget, settings, ready, error,
     purchase: t => { void change(value => commitPurchase(value, t)).catch(() => {}); },
     setLimits: limits => { void change(value => editLimits(value, limits)).catch(() => {}); },
-    setGoal: goal => { void change(value => ({ ...value, goal })).catch(() => {}); },
+    setGoal: goal => { void change(value => ({ ...value, goal, goals: value.goals?.map((g, index) => index === 0 ? { ...g, ...goal } : g) })).catch(() => {}); },
+    saveGoal: goal => change(value => {
+      if (!goal.name.trim() || !Number.isSafeInteger(goal.target) || goal.target <= 0 || !Number.isSafeInteger(goal.saved) || goal.saved < 0 || !Number.isInteger(goal.days) || goal.days < 1 || goal.days > 3650) throw new Error('Enter a name, valid amounts and 1–3650 days.');
+      const goals = normalizeGoals(value).goals!;
+      return { ...value, goals: goals.some(g => g.id === goal.id) ? goals.map(g => g.id === goal.id ? goal : g) : [...goals, goal] };
+    }),
+    removeGoal: id => change(value => {
+      const goals = normalizeGoals(value).goals!.filter(g => g.id !== id);
+      if (!goals.length) throw new Error('Keep at least one goal.');
+      return { ...value, goals };
+    }),
     reset: () => { void change(seedBudget).catch(() => {}); },
     importBank: bank => { void change(value => ({ ...value, bank })).catch(() => {}); },
     updateSettings,
     approvePlan: plan => {
       if (!plan.canApprove || plan.availableCents < 0) throw new Error('Resolve the proposal warnings first.');
-      void change(value => {
-        if (plan.snapshotAt !== value.bank?.importedAt || plan.accountId !== value.bank?.account.id) throw new Error('Bank data changed. Review a new proposal first.');
-        return { ...value, plan, categories: plan.allocations.map(c => ({ ...c })), transactions: [] };
-      }).catch(() => {});
+      return change(value => {
+        return applyBudgetPlan(value, plan);
+      });
     },
     applyNessiePurchase,
   }}>{children}</Context.Provider>;

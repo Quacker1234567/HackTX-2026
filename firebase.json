@@ -1,5 +1,5 @@
 {
   "firestore": { "rules": "firestore.rules" },
-  "functions": [{ "source": "backend", "codebase": "flow", "runtime": "nodejs22", "ignore": ["node_modules", ".env.local", ".secret.local", ".seed-state.json", ".funded-demo-state.json", ".purchase-journal", "tests", "scripts"] }],
+  "functions": [{ "source": "backend", "codebase": "flow", "runtime": "nodejs22", "ignore": ["node_modules", ".env.local", ".secret.local", ".seed-state.json", ".funded-demo-state.json", ".purchase-journal", ".student-demo", "tests", "scripts"] }],
   "hosting": { "public": "mobile/dist", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"], "rewrites": [{ "source": "**", "destination": "/index.html" }] }
 }

@@ -3,6 +3,18 @@
 Updated: October 24, 2026. Read this before changing the project.
 This is a working hackathon prototype, not a production banking integration.
 
+Student dataset update (October 25): the local backend now selects fictional
+Alex Rivera, with 116 verified purchases covering July 28–October 25, nine
+deposits, four merchant locations, $1,191 checking and $400 separate savings.
+The new bill reader works; only a duplicate recurring schedule was cancelled.
+Run the existing algorithm at 0% reduction for the baseline. See
+[student-demo.md](docs/student-demo.md) for limits, goal assumptions, restart/import
+steps and rollback. Keep the ignored `.student-demo/` journal and configuration
+backup; earlier customers remain intact. Snapshots now include owned checking/
+savings account context without pooling it into spending money. Goals automatically migrates the first goal to the imported Flow Student Emergency Savings account once, preserving target and duration and taking its saved amount from the bank. Additional goals are saved separately, start with zero savings, and can be added, edited and removed (keep one). Budget proposals reserve the combined pace of all goals; Home lists them all. Legacy goal remains a synchronized primary-goal alias. No money is transferred. Instructional callouts were removed from Home, Budget and Goals; real errors and data warnings remain. Approval preserves all recorded purchases. Insights is a separate main tab with 90-day category patterns, weekday averages, deposits, activity history, account refresh and independent 0–100% reductions for all four categories. Preview/apply preserves transactions and persists applied preferences in the plan. Priority affects funding order and does not cancel an explicit reduction. Tools retains bank diagnostics, connections, purchase tests and Demo preferences. Settings is no longer a main tab; its controls are accessed through Tools → Demo preferences.
+
+UI integration (October 25): presentation changes from origin/main 71a96af (ui-changes PR #6) have been adapted onto mike-branch’s working functionality. Shared design tokens, navy balance cards, grouped rows, goal ring and navigation styling are used while preserving Insights, all-category reductions, savings balance selection and purchase-preserving approval. Settings stays under Tools. This integration is included with the student demo, Insights and multi-goal updates.
+
 ## Product and current direction
 
 Flow is a visual budgeting app for the Capital One “Best Use of Nessie” track.
@@ -13,7 +25,7 @@ The agreed stack is Expo/React Native, Firebase, Nessie sandbox data, and ESP32
 communication over Wi-Fi. Android is the primary target, with web kept as a
 fallback. The UI follows the supplied wallet-app reference: cool gray background,
 white rounded cards, thin blue progress bars, and a floating five-item navigation
-bar (Home, Goal, Budget, Settings, Tools). Blue/navy and red come from the
+bar (Home, Goal, Budget, Insights, Tools). Blue/navy and red come from the
 Capital One direction. Keep Home focused on remaining balances; ordinary
 preferences belong in Settings; development controls belong in Tools.
 

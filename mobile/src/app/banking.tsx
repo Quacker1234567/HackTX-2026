@@ -1,21 +1,20 @@
+import { StackPage } from '../components/design';
 import { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Text, View } from 'react-native';
 import { useBudget } from '../state/BudgetProvider';
 import { Button, Field, styles } from '../components/ui';
-import { analyzeHistory, BankSnapshot, confirmManualBills, dayKey, Preferences, proposeBudget, validDate } from '../domain/banking';
+import { analyzeHistory, BankSnapshot, confirmManualBills, dayKey, validDate } from '../domain/banking';
 import { money, parseMoney } from '../domain/budget';
 import { reconcileNessieDebit } from '../services/banking';
 
 export default function Banking() {
-  const { budget, approvePlan, importBank } = useBudget();
+  const { budget, importBank } = useBudget();
   const [manualBills, setManualBills] = useState<BankSnapshot['bills']>([]);
   const [billName, setBillName] = useState('');
   const [billAmount, setBillAmount] = useState('');
   const [billDate, setBillDate] = useState('');
   const [billError, setBillError] = useState('');
-  const [reduction, setReduction] = useState('20');
-  const [protect, setProtect] = useState('groceries');
-  const [reviewing, setReviewing] = useState(false);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const bank = budget.bank;
@@ -29,12 +28,10 @@ export default function Banking() {
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Reconciliation failed. The reserve is unchanged.'); }
     finally { setBusy(false); }
   }
-  const preferences: Preferences = { diningReduction: Number(reduction), protectedCategory: protect };
   const history = useMemo(() => bank ? analyzeHistory(bank) : null, [bank]);
-  const proposal = bank ? proposeBudget(bank, budget.goal, preferences) : null;
-  if (!bank || !history || !proposal) return <ScrollView contentContainerStyle={styles.page}><Text style={styles.title}>Your banking picture.</Text><Text style={styles.body}>Import a Nessie account from Connections to see balances, history, bills, and a proposed budget.</Text></ScrollView>;
+  if (!bank || !history) return <StackPage><Text style={styles.title}>Your banking picture.</Text><Text style={styles.body}>Import a Nessie account from Connections to see balances, history, bills, and a proposed budget.</Text></StackPage>;
   const billNeedsReview = bank.billReviewRequired || bank.warnings.some(w => w.startsWith('Nessie bills could not be imported.'));
-  return <ScrollView contentContainerStyle={styles.page}>
+  return <StackPage>
     <Text style={styles.title}>Your banking picture.</Text>
     <Text style={styles.notice}>Nessie mock data · Imported {new Date(bank.importedAt).toLocaleString()}</Text>
     {!!bank.unreflectedPurchaseCents && <Text style={styles.notice}>{money(bank.unreflectedPurchaseCents)} reserved for verified Flow purchases not reflected in Nessie’s reported balance. This reserve is deducted once when planning.</Text>}
@@ -74,33 +71,16 @@ export default function Banking() {
       {manualBills.map(b => <View key={b.id} style={styles.row}><Text style={styles.body}>{b.payee}: {money(b.cents)} · {b.date}</Text><Button secondary onPress={() => setManualBills(items => items.filter(item => item.id !== b.id))}>Remove</Button></View>)}
       <Text style={styles.body}>Confirm only when this list covers all upcoming obligations. Missing bills would make the spending estimate too high.</Text>
       <Button disabled={!!(billName || billAmount || billDate)} onPress={() => {
-        importBank(confirmManualBills(bank, manualBills)); setReviewing(false); setManualBills([]); setBillError('');
+        importBank(confirmManualBills(bank, manualBills)); setManualBills([]); setBillError('');
         setNotice('Bill list confirmed for local planning. You can now review a budget proposal.');
       }}>{manualBills.length ? 'Confirm this is my complete bill list' : 'Confirm I have no upcoming bills'}</Button>
       {!!billError && <Text accessibilityRole="alert" style={styles.notice}>{billError}</Text>}
     </View>}
     {bank.bills.length ? bank.bills.map(b => <Text key={b.id} style={styles.body}>{b.payee}: {money(b.cents)} · {b.date ?? 'Date missing'} · {b.status}</Text>) : <Text style={styles.body}>{billNeedsReview ? 'Bill data is incomplete. Add and confirm the list above.' : 'No upcoming bills in the confirmed list.'}</Text>}
-    <View style={styles.panel}>
-      <Text style={styles.heading}>How do you want to spend?</Text>
-      <Field label="Reduce dining by (%)" value={reduction} onChangeText={v => { setReduction(v); setReviewing(false); }} numeric />
-      <Text style={styles.body}>Which category should keep its historical pace first?</Text>
-      <View style={styles.row}>{['groceries', 'transport', 'dining'].map(id => <Button key={id} secondary={protect !== id} onPress={() => { setProtect(id); setReviewing(false); }}>{id}</Button>)}</View>
-      <Text style={styles.body}>Savings follows the daily pace of your goal. Categories use completed purchases from the last 90 days. Unallocated money goes to Other as a flexible buffer. No AI is used for these calculations.</Text>
-      <Button onPress={() => { setReviewing(true); setNotice(''); }}>Review proposed budget</Button>
-    </View>
-    {reviewing && <View style={styles.panel}>
-      <Text style={styles.heading}>Plan for {proposal.periodLabel}</Text>
-      <Text style={styles.body}>Account balance: {money(proposal.balanceCents)}{'\n'}Upcoming bills reserved: −{money(proposal.billsCents)}{'\n'}Goal contribution reserved: −{money(proposal.savingsCents)}{'\n'}Available for category spending: {money(proposal.availableCents)}</Text>
-      {proposal.allocations.map(c => <Text key={c.id} style={styles.body}>{c.name}: {money(c.limit)}</Text>)}
-      {proposal.unallocatedCents > 0 && <Text style={styles.body}>Unallocated: {money(proposal.unallocatedCents)}{'\n'}Categories are capped at your recent spending pace, so this is left over. Raise a limit in Budget to use it.</Text>}
-      {proposal.warnings.map(w => <Text key={w} style={styles.notice}>{w}</Text>)}
-      <Text style={styles.body}>Approval starts a new local demo spending cycle and clears existing demo purchases. Imported bank history is kept. Bills and savings are reservations; no money is transferred.</Text>
-      <Button disabled={!proposal.canApprove} onPress={() => { approvePlan(proposal); setReviewing(false); setNotice('Budget approved. Open Budget to try a purchase.'); }}>Approve and start new cycle</Button>
-      <Button secondary onPress={() => setReviewing(false)}>Keep current budget</Button>
-    </View>}
+    <Button onPress={() => router.navigate('/insights')}>Open spending insights and budget adjustments</Button>
     <Text style={styles.heading}>Imported purchases</Text>
     {bank.purchases.slice().sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).slice(0, 20).map(p => <Text key={p.id} style={styles.body}>{p.merchant} · {money(p.cents)} · {p.date ?? 'No date'} · {p.status}</Text>)}
     {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
-  </ScrollView>;
+  </StackPage>;
 }
 

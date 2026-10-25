@@ -4,6 +4,11 @@ This guide covers **Expo Go for development** and an **installed Android preview
 build**. Firebase stays on the free Spark plan. Nessie requests currently run on
 your laptop through Cloudflare.
 
+**Current student demo:** [Alex Rivera's seeded dataset](docs/student-demo.md)
+contains July–October activity, checking and savings, four merchants, working
+bill reads, and a verified budget calculated by the existing algorithm. The
+backend now selects this customer; restart it and import **Flow Student Checking**.
+
 **Teammates and coding agents:** start with [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
 for architecture, current capabilities, limitations, and a fresh-clone setup.
 
@@ -152,8 +157,9 @@ In Flow:
 2. On a new installation, tap **Create connection ID**. Add that ID to
    `NESSIE_ALLOWED_UIDS` in `backend/.env.hacktx26`, then restart only the backend
    terminal. Multiple tester IDs can be separated by commas.
-3. Tap **Load Nessie accounts** and choose **Flow funded demo checking** for the
-   funded sample. The original zero-balance demo account is also preserved.
+3. Tap **Load Nessie accounts** and choose **Flow Student Checking** for the
+   current demo. Earlier demo customers are preserved; switching back requires
+   restoring their customer ID in the backend configuration.
 4. Open **Tools → Banking** to inspect the imported data. Use **Tools → Test a
    purchase** to preview and confirm local spending; Home no longer opens that
    screen. **Tools → Transaction history** lists imported and local activity.

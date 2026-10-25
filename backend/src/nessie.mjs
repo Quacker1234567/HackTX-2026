@@ -86,6 +86,7 @@ export async function loadSnapshot(client, customerId, accountId, now = new Date
   if (bills.some(b => !['pending', 'recurring', 'completed', 'cancelled', 'canceled'].includes(text(b.status).toLowerCase()))) warnings.push('Some bill statuses are unknown. Review them before approving a plan.');
   return {
     source: 'nessie', importedAt: now.toISOString(), account: normalizeAccount(account),
+    accounts: rawAccounts.filter(a => ['Checking', 'Savings'].includes(a.type)).map(normalizeAccount),
     billSource: 'nessie', billReviewRequired: warnings.some(w => w.startsWith('Nessie bills could not be imported.')),
     purchases: purchases.map(p => ({ id: p._id, cents: nonnegativeCents(p.amount), date: date(p.transaction_date ?? p.purchase_date), status: text(p.status).toLowerCase(), merchantId: text(p.merchant_id), merchant: merchantMap.get(p.merchant_id)?.name ?? 'Unknown merchant', categoryId: merchantMap.get(p.merchant_id)?.categoryId ?? 'other' })),
     deposits: deposits.map(d => ({ id: d._id, cents: nonnegativeCents(d.amount), date: date(d.transaction_date), status: text(d.status).toLowerCase(), description: text(d.description, 'Deposit') })),

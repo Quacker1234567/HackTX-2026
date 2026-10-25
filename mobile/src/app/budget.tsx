@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
-import { Icon, Screen } from '../components/design';
-import { colors, styles } from '../components/ui';
+import { Text, TextInput, View } from 'react-native';
+import { Icon, Screen, SectionTitle } from '../components/design';
+import { AmountRow, colors, Group, GroupRow, Money, NavyFace, Notice, PressScale, styles } from '../components/ui';
 import { categoriesWithSpend, displayMoney, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
@@ -11,6 +11,8 @@ export default function BudgetScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
+  const allocated = categories.reduce((sum, category) => sum + category.limit, 0);
+  const unallocated = budget.plan ? Math.max(0, budget.plan.availableCents - allocated) : 0;
   const save = () => {
     if (!editingId) return false;
     const text = draft.trim();
@@ -26,34 +28,49 @@ export default function BudgetScreen() {
       return false;
     }
   };
-  return <Screen title="Budget" subtitle="Make room for what matters to you.">
-    {!ready ? <Text style={styles.body}>Loading your allocations…</Text> : <View style={[styles.panel, { padding: 0, overflow: 'hidden' }]}>{categories.map((category, index) => <View key={category.id} style={{ padding: 20, borderTopWidth: index ? 1 : 0, borderTopColor: colors.paper }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <Text style={[styles.heading, { flexShrink: 1 }]}>{category.name}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          {editingId === category.id
-            ? <TextInput accessibilityLabel={`${category.name} budget`} value={draft} onChangeText={setDraft} keyboardType="decimal-pad" autoFocus onSubmitEditing={save} style={[styles.input, { minWidth: 104, textAlign: 'right', paddingVertical: 8, fontSize: 20 }]} />
-            : <Text style={{ fontSize: 20, color: colors.ink }}>{displayMoney(category.limit, settings.hideBalances)}</Text>}
-          <Pressable accessibilityRole="button" accessibilityLabel={editingId === category.id ? `Save ${category.name} budget` : `Edit ${category.name} budget`} onPress={() => {
-            if (editingId === category.id) { save(); return; }
-            if (editingId && !save()) return;
-            setEditingId(category.id);
-            setDraft(String(category.limit / 100));
-            setMessage('');
-          }} hitSlop={8} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="pencil" size={18} color={colors.blue} strokeWidth={1.3} />
-          </Pressable>
-        </View>
+  return <Screen title="Budget">
+    {!ready ? <Text style={styles.body}>Loading your allocations…</Text> : <>
+      <NavyFace title="Allocated">
+        <Money size={40} color={colors.white} weight="700">{displayMoney(allocated, settings.hideBalances)}</Money>
+      </NavyFace>
+      <View style={{ gap: 16 }}>
+        <SectionTitle>Category limits</SectionTitle>
+        <Group>
+          {categories.map((category, index) => <GroupRow key={category.id} last={index === categories.length - 1}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <Text style={[styles.heading, { flexShrink: 1 }]}>{category.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                {editingId === category.id
+                  ? <TextInput accessibilityLabel={`${category.name} budget`} value={draft} onChangeText={setDraft} keyboardType="decimal-pad" autoFocus onSubmitEditing={save} style={[styles.input, styles.money, { minWidth: 104, textAlign: 'right', paddingVertical: 8, fontSize: 20, minHeight: 48 }]} />
+                  : <Money size={17} weight="600">{displayMoney(category.limit, settings.hideBalances)}</Money>}
+                <PressScale accessibilityRole="button" accessibilityLabel={editingId === category.id ? `Save ${category.name} budget` : `Edit ${category.name} budget`} onPress={() => {
+                  if (editingId === category.id) { save(); return; }
+                  if (editingId && !save()) return;
+                  setEditingId(category.id);
+                  setDraft(String(category.limit / 100));
+                  setMessage('');
+                }} style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="pencil" size={18} color={colors.navy} strokeWidth={1.6} />
+                </PressScale>
+              </View>
+            </View>
+            <AmountRow label={category.spent > category.limit ? 'Over' : 'Spent'} color={category.spent > category.limit ? colors.red : colors.muted}>
+              <Money size={15} color={category.spent > category.limit ? colors.red : colors.muted}>{displayMoney(category.spent, settings.hideBalances)}</Money>
+            </AmountRow>
+          </GroupRow>)}
+        </Group>
       </View>
-      <Text style={[styles.body, { marginTop: 6 }]}>{displayMoney(category.spent, settings.hideBalances)} spent this month{category.spent > category.limit ? ' · over budget' : ''}</Text>
-    </View>)}</View>}
-    {!!budget.plan && ready && <View style={styles.panel}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-        <Text style={[styles.heading, { flexShrink: 1 }]}>Unallocated</Text>
-        <Text style={{ fontSize: 20, color: colors.ink }}>{displayMoney(Math.max(0, budget.plan.availableCents - budget.categories.reduce((sum, c) => sum + c.limit, 0)), settings.hideBalances)}</Text>
-      </View>
-      <Text style={styles.body}>Available after bills and savings, but not assigned to a category. Your plan caps each category at its recent spending pace, so anything beyond that waits here. Raise a limit above to use it.</Text>
-    </View>}
-    {!!message && <Text accessibilityLiveRegion="polite" style={styles.notice}>{message}</Text>}
+      {!!budget.plan && <View style={{ gap: 16 }}>
+        <SectionTitle>Plan leftover</SectionTitle>
+        <Group>
+          <GroupRow last>
+            <AmountRow label="Unallocated">
+              <Money size={17} weight="600">{displayMoney(unallocated, settings.hideBalances)}</Money>
+            </AmountRow>
+          </GroupRow>
+        </Group>
+      </View>}
+    </>}
+    {!!message && <Notice>{message}</Notice>}
   </Screen>;
 }

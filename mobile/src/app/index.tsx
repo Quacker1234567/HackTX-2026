@@ -1,33 +1,54 @@
 import { router } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
-import { Screen, Progress, Icon } from '../components/design';
-import { colors, styles } from '../components/ui';
-import { categoriesWithSpend, displayMoney } from '../domain/budget';
+import { Text, View } from 'react-native';
+import { Screen, Progress, Icon, SectionTitle } from '../components/design';
+import { colors, Group, GroupRow, Money, NavyFace, Notice, PressScale, styles } from '../components/ui';
+import { categoriesWithSpend, displayMoney, normalizeGoals } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
 export default function Home() {
   const { budget, settings, ready, error } = useBudget();
   const categories = categoriesWithSpend(budget);
-  const goal = budget.goal;
+  const goals = normalizeGoals(budget).goals!;
   const name = settings.displayName.trim();
-  return <Screen title={name ? `${name}'s budget` : 'Your budget'} subtitle={budget.plan ? `Your approved plan for ${budget.plan.periodLabel}` : 'A little clarity before your next purchase.'}>
+  const funded = categories.filter(category => category.limit > 0);
+  const remainingTotal = funded.reduce((sum, category) => sum + Math.max(0, category.limit - category.spent), 0);
+  const limitTotal = funded.reduce((sum, category) => sum + category.limit, 0);
+  const spentTotal = funded.reduce((sum, category) => sum + category.spent, 0);
+  const faceTitle = budget.bank?.account.name ?? 'Remaining';
+  return <Screen title={name || 'Home'}>
     {!ready ? <Text style={styles.body}>Loading your budget…</Text> : <>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.blue }} /><Text style={{ color: colors.muted, fontSize: 13 }}>{budget.plan ? 'Approved allocations' : 'Local demo allocations'}</Text></View>
-      {/* An unfunded category has no bar to show. It stays editable in Budget. */}
-      {!categories.some(c => c.limit > 0) && <Text style={styles.body}>No category has funds yet. Set a limit in Budget, or approve a plan in Tools → Banking.</Text>}
-      {categories.filter(category => category.limit > 0).map(category => {
-        const remaining = Math.max(0, category.limit - category.spent);
-        return <View key={category.id} accessible accessibilityLabel={`${category.name}: ${displayMoney(remaining, settings.hideBalances)} left`} style={[styles.panel, { overflow: 'hidden', gap: 18 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-            <Text style={[styles.heading, { flexShrink: 1 }]}>{category.name}</Text>
-            <Text style={[styles.heading, { fontWeight: '400', flexShrink: 1, textAlign: 'right' }]}>{displayMoney(remaining, settings.hideBalances)} left</Text>
+      <NavyFace title={faceTitle} accessibilityLabel={`${faceTitle}: ${displayMoney(remainingTotal, settings.hideBalances)} left`}>
+        <Money size={40} color={colors.white} weight="700">{displayMoney(remainingTotal, settings.hideBalances)}</Money>
+        <Progress onNavy value={limitTotal ? spentTotal / limitTotal : 0} label="Budget used" />
+      </NavyFace>
+      <View style={{ gap: 16 }}>
+        <SectionTitle>Categories</SectionTitle>
+        <Group>
+          {funded.length ? funded.map((category, index) => {
+            const remaining = Math.max(0, category.limit - category.spent);
+            const over = category.spent > category.limit;
+            const leftover = `${displayMoney(remaining, settings.hideBalances)} left`;
+            return <GroupRow key={category.id} last={index === funded.length - 1} accessibilityLabel={`${category.name}: ${leftover}`}>
+              <View style={styles.amountRow}>
+                <Text style={[styles.rowLead, { flexShrink: 1, color: over ? colors.red : colors.ink }]}>{category.name}</Text>
+                <Money size={16} weight="400" color={over ? colors.red : colors.muted}>{leftover}</Money>
+              </View>
+              <Progress value={category.limit ? category.spent / category.limit : 0} label={`${category.name} used`} />
+            </GroupRow>;
+          }) : <GroupRow last><Text style={styles.body}>No funded categories yet. Set limits in Budget.</Text></GroupRow>}
+        </Group>
+      </View>
+      {goals.map(goal => <PressScale key={goal.id} accessibilityLabel={`View saving goal. ${goal.name}, saved ${displayMoney(goal.saved, settings.hideBalances)} of ${displayMoney(goal.target, settings.hideBalances)}`} onPress={() => router.navigate('/goals')} android_ripple={{ color: colors.well }} style={{ alignSelf: 'stretch' }}>
+        <View style={styles.goalPlate}>
+          <View style={{ flex: 1, gap: 10, minWidth: 0 }}>
+            <Text style={styles.rowLead}>{goal.name}</Text>
+            <Money size={16} weight="400" color={colors.muted}>{`Saved ${displayMoney(goal.saved, settings.hideBalances)} of ${displayMoney(goal.target, settings.hideBalances)}`}</Money>
+            <Progress value={goal.target ? goal.saved / goal.target : 0} label="Goal saved" />
           </View>
-          <Progress value={category.limit ? category.spent / category.limit : 0} label={`${category.name} used`} />
-        </View>;
-      })}
-      <Text style={[styles.heading, { marginTop: 4 }]}>Saving goal</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="View saving goal" onPress={() => router.navigate('/goals')} style={styles.panel}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={styles.heading}>{goal.name}</Text><Icon name="goal" /></View><Progress value={goal.target ? goal.saved / goal.target : 0} label="Goal saved" /><Text style={styles.body}>{displayMoney(goal.saved, settings.hideBalances)} of {displayMoney(goal.target, settings.hideBalances)}</Text></Pressable>
-    </>}{!!error && <Text accessibilityRole="alert" style={styles.notice}>{error}</Text>}
+          <Icon name="arrow" size={16} color={colors.navy} />
+        </View>
+      </PressScale>)}
+    </>}
+    {!!error && <Notice tone="alert">{error}</Notice>}
   </Screen>;
 }
-

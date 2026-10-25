@@ -1,7 +1,24 @@
 import type { BankSnapshot, BudgetProposal } from './banking';
 export type Category = { id: string; name: string; limit: number; spent: number };
 export type Transaction = { id: string; categoryId: string; merchant: string; cents: number; createdAt: string; nessiePurchaseId?: string; accountId?: string };
-export type Budget = { version: 1; categories: Category[]; transactions: Transaction[]; goal: { name: string; target: number; saved: number; days: number }; bank?: BankSnapshot; plan?: BudgetProposal };
+export type Goal = { id: string; name: string; target: number; saved: number; days: number; accountId?: string };
+export type Budget = { version: 1; categories: Category[]; transactions: Transaction[]; goal: { name: string; target: number; saved: number; days: number }; goals?: Goal[]; studentSavingsLinked?: boolean; bank?: BankSnapshot; plan?: BudgetProposal };
+
+// Upgrade the original single goal without dropping existing targets or history.
+// Each bank balance can belong to one goal only; additional goals start unfunded.
+export function normalizeGoals(state: Budget): Budget {
+  const savings = state.bank?.accounts?.find(a => a.type.toLowerCase() === 'savings' && a.name === 'Flow Student Emergency Savings');
+  const existing = state.goals?.length ? state.goals : [{ ...state.goal, id: 'primary', ...(savings ? { name: savings.name, accountId: savings.id } : {}) }];
+  const linked = savings && !state.studentSavingsLinked ? existing.map((g, index) => index === 0 ? { ...g, name: savings.name, accountId: savings.id } : g) : existing;
+  const goals = linked.map(goal => {
+    const account = state.bank?.accounts?.find(a => a.id === goal.accountId);
+    return account ? { ...goal, saved: account.balanceCents } : goal;
+  });
+  return { ...state, goals, goal: goals[0], studentSavingsLinked: state.studentSavingsLinked || !!savings };
+}
+export function planningGoal(state: Budget) {
+  return { ...state.goal, additionalGoals: state.goals?.slice(1) ?? [] };
+}
 
 export const seedBudget = (): Budget => ({
   version: 1,
@@ -47,6 +64,11 @@ export function categoriesWithSpend(state: Budget, now = new Date()): Category[]
   return state.categories.map(category => ({ ...category, spent: spent[category.id] ?? 0 }));
 }
 export const displayMoney = (cents: number, hide: boolean) => hide ? '••••' : money(cents);
+export function applyBudgetPlan(state: Budget, plan: BudgetProposal): Budget {
+  if (!plan.canApprove || plan.availableCents < 0) throw new Error('Resolve the proposal warnings first.');
+  if (plan.snapshotAt !== state.bank?.importedAt || plan.accountId !== state.bank?.account.id) throw new Error('Bank data changed. Review a new proposal first.');
+  return { ...state, plan, categories: plan.allocations.map(c => ({ ...c })) };
+}
 export function parseMoney(value: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) return null;
   const cents = Math.round(Number(value) * 100);
