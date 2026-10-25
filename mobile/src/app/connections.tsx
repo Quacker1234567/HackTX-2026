@@ -1,20 +1,27 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 import { SectionTitle, StackPage } from '../components/design';
-import { Button, Field, Group, GroupRow, Notice } from '../components/ui';
+import { Button, Group, GroupRow, Notice, styles } from '../components/ui';
 import { useBudget } from '../state/BudgetProvider';
 import { ensureFirebaseUser, firebaseConfigured, saveCloudSnapshot } from '../services/firebase';
 import { getNessieAccounts, getNessieSnapshot } from '../services/banking';
 import { BankAccount } from '../domain/banking';
 import { money } from '../domain/budget';
-import { sendToWallet, walletSnapshot } from '../services/wallet';
+import { useHardwareWallet } from '../state/HardwareWalletProvider';
+import { walletDatabaseUrl, walletDeviceId } from '../services/firebaseWallet';
 
 export default function Connections() {
   const { budget, ready, importBank } = useBudget();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [uid, setUid] = useState('');
-  const [endpoint, setEndpoint] = useState('http://192.168.1.100');
-  const [token, setToken] = useState('');
+  const wallet = useHardwareWallet();
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!wallet.connected) return;
+    const timer = setInterval(() => setClock(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, [wallet.connected]);
+  const deviceOnline = !!wallet.status?.last_seen && clock - wallet.status.last_seen < 45000 && clock - wallet.status.last_seen >= -5000;
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   async function run(action: () => Promise<string>) {
@@ -48,16 +55,20 @@ export default function Connections() {
       </Group>
     </View>
     <View style={{ gap: 16 }}>
-      <SectionTitle>ESP32 over Wi-Fi</SectionTitle>
+      <SectionTitle>Firebase wallet</SectionTitle>
       <Group>
         <GroupRow>
-          <Field label="Device base URL" value={endpoint} onChangeText={setEndpoint} />
+          <Text style={styles.heading}>{walletDeviceId}</Text>
+          <Text style={styles.body}>{wallet.connected ? deviceOnline ? 'Device online' : 'Connected to Firebase · waiting for device' : 'Disconnected'}</Text>
+          <Text style={styles.body}>04A1B2C3 · Dining · $12</Text>
         </GroupRow>
         <GroupRow>
-          <Field label="Device access token" value={token} onChangeText={setToken} secure />
+          {wallet.connected ? <Button secondary disabled={wallet.busy} onPress={wallet.disconnect}>Disconnect wallet</Button> : <Button disabled={!ready || wallet.busy || !walletDatabaseUrl} onPress={() => void wallet.connect()}>{wallet.busy ? 'Connecting…' : 'Connect wallet'}</Button>}
         </GroupRow>
         <GroupRow last>
-          <Button disabled={!ready || busy} onPress={() => run(async () => { await sendToWallet(endpoint, token, walletSnapshot(budget.categories[0])); return `Wallet acknowledged Dining snapshot at ${new Date().toLocaleTimeString()}.`; })}>Send to wallet</Button>
+          <Button disabled={!wallet.connected || wallet.busy} onPress={() => void wallet.sync()}>Send budget</Button>
+          <Button secondary disabled={!wallet.connected || wallet.busy} onPress={() => void wallet.retry()}>Retry saved wallet purchase</Button>
+          {!!wallet.message && <Notice>{wallet.message}</Notice>}
         </GroupRow>
       </Group>
     </View>

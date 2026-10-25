@@ -1,0 +1,115 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "deviceAccess": {
+      "$deviceId": {
+        ".read": "(auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid) || (auth != null && root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid)"
+      }
+    },
+    "userDevices": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid"
+      }
+    },
+    "wallets": {
+      "$deviceId": {
+        "control": {
+          "desired": {
+            ".read": "(auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid) || (auth != null && root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid)",
+            "reader": {
+              ".write": "auth != null && (root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid || root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid)",
+              ".validate": "newData.hasChildren(['seq','present']) && (newData.child('present').val() === false || newData.hasChild('uid'))",
+              "seq": {
+                ".validate": "newData.isNumber() && newData.val() > 0"
+              },
+              "present": {
+                ".validate": "newData.isBoolean()"
+              },
+              "uid": {
+                ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9:-]{1,32}$/)"
+              },
+              "$other": {
+                ".validate": "false"
+              }
+            },
+            ".write": "auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['type','command_id','issued_at','display']) && newData.child('type').val() === 'device_update' && newData.child('command_id').isString() && newData.child('command_id').val().length <= 64"
+          }
+        },
+        "status": {
+          ".read": "(auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid) || (auth != null && root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid)",
+          ".write": "(auth != null && root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid) && newData.exists()",
+          ".validate": "newData.hasChildren(['boot_id','last_seen','last_ack_id','firmware'])",
+          "boot_id": {
+            ".validate": "newData.isString() && newData.val().matches(/^[a-f0-9]{16}$/)"
+          },
+          "last_seen": {
+            ".validate": "newData.isNumber() && newData.val() === now"
+          },
+          "last_ack_id": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "firmware": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64"
+          },
+          "$other": {
+            ".validate": "false"
+          }
+        },
+        "events": {
+          ".read": "auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid",
+          ".indexOn": [
+            "created_at"
+          ],
+          "$eventId": {
+            ".write": "(auth != null && root.child('deviceAccess').child($deviceId).child('deviceUid').val() === auth.uid) && !data.exists() && newData.exists()",
+            ".validate": "newData.hasChildren(['type','boot_id','sequence','uptime_ms','created_at']) && ((newData.child('type').val() === 'button_event' && newData.hasChildren(['action','duration_ms']) && !newData.hasChild('uid') && !newData.hasChild('simulated') && !newData.hasChild('category') && !newData.hasChild('amount_cents')) || (newData.child('type').val() === 'nfc_event' && newData.hasChildren(['uid','simulated']) && !newData.hasChild('action') && !newData.hasChild('duration_ms') && !newData.hasChild('category') && !newData.hasChild('amount_cents')) || (newData.child('type').val() === 'purchase_confirm' && newData.hasChildren(['uid','simulated','category','amount_cents']) && !newData.hasChild('action') && !newData.hasChild('duration_ms')))",
+            "type": {
+              ".validate": "newData.val() === 'button_event' || newData.val() === 'nfc_event' || newData.val() === 'purchase_confirm'"
+            },
+            "boot_id": {
+              ".validate": "newData.isString() && newData.val().matches(/^[a-f0-9]{16}$/) && newData.val() === root.child('wallets').child($deviceId).child('status/boot_id').val()"
+            },
+            "sequence": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 2147483647"
+            },
+            "uptime_ms": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4294967295"
+            },
+            "created_at": {
+              ".validate": "newData.isNumber() && newData.val() === now"
+            },
+            "action": {
+              ".validate": "newData.val() === 'press' || newData.val() === 'long_press'"
+            },
+            "duration_ms": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 4294967295"
+            },
+            "uid": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9:-]{1,32}$/)"
+            },
+            "simulated": {
+              ".validate": "newData.isBoolean()"
+            },
+            "category": {
+              ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9_-]{1,12}$/)"
+            },
+            "amount_cents": {
+              ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 100000000"
+            },
+            "$other": {
+              ".validate": "false"
+            }
+          }
+        },
+        "transactions": {
+          ".read": "auth != null && root.child('deviceAccess').child($deviceId).child('ownerUid').val() === auth.uid",
+          ".indexOn": [
+            "created_at"
+          ]
+        }
+      }
+    }
+  }
+}
