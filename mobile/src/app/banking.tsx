@@ -13,7 +13,6 @@ export default function Banking() {
   const [billAmount, setBillAmount] = useState('');
   const [billDate, setBillDate] = useState('');
   const [billError, setBillError] = useState('');
-  const [payday, setPayday] = useState(() => { const date = new Date(); date.setDate(date.getDate() + 30); return dayKey(date); });
   const [reduction, setReduction] = useState('20');
   const [protect, setProtect] = useState('groceries');
   const [reviewing, setReviewing] = useState(false);
@@ -30,7 +29,7 @@ export default function Banking() {
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Reconciliation failed. The reserve is unchanged.'); }
     finally { setBusy(false); }
   }
-  const preferences: Preferences = { payday, diningReduction: Number(reduction), protectedCategory: protect };
+  const preferences: Preferences = { diningReduction: Number(reduction), protectedCategory: protect };
   const history = useMemo(() => bank ? analyzeHistory(bank) : null, [bank]);
   const proposal = bank ? proposeBudget(bank, budget.goal, preferences) : null;
   if (!bank || !history || !proposal) return <ScrollView contentContainerStyle={styles.page}><Text style={styles.title}>Your banking picture.</Text><Text style={styles.body}>Import a Nessie account from Connections to see balances, history, bills, and a proposed budget.</Text></ScrollView>;
@@ -56,7 +55,7 @@ export default function Banking() {
     <Text style={styles.heading}>Spending patterns · Last 90 days</Text>
     <Text style={styles.body}>{history.count} completed purchases totaling {money(history.totalCents)}. {history.ignoredCount} pending, undated, or older purchases excluded.</Text>
     {history.byCategory.map(c => <Text key={c.id} style={styles.body}>{c.id}: {money(c.cents)}</Text>)}
-    <Text style={styles.body}>Completed deposits: {money(history.incomeCents)} across {history.incomeCount} deposits.{history.estimatedPaydayGap ? ` Historical deposit spacing: about ${history.estimatedPaydayGap} days; confirm your actual next payday below.` : ' Add more dated deposits to estimate income cadence.'}</Text>
+    <Text style={styles.body}>Completed deposits: {money(history.incomeCents)} across {history.incomeCount} deposits.{history.estimatedPaydayGap ? ` Historical deposit spacing: about ${history.estimatedPaydayGap} days; this plan covers the calendar month.` : ' Add more dated deposits to estimate income cadence.'}</Text>
     <View style={styles.panel}><Text style={styles.heading}>Average spending by day</Text>{history.weekdays.map(d => <Text key={d.day} style={styles.body}>{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.day]}: {money(d.averageCents)}</Text>)}<Text style={styles.body}>Average per calendar weekday in the 90-day window, including days with no purchases.</Text></View>
     <Text style={styles.heading}>Bills</Text>
     {bank.billSource === 'manual' && <Text style={styles.notice}>Manually entered and confirmed bills. These are used for planning because the Nessie bill reader is unavailable. Re-importing bank data requires reviewing bills again.</Text>}
@@ -83,7 +82,6 @@ export default function Banking() {
     {bank.bills.length ? bank.bills.map(b => <Text key={b.id} style={styles.body}>{b.payee}: {money(b.cents)} · {b.date ?? 'Date missing'} · {b.status}</Text>) : <Text style={styles.body}>{billNeedsReview ? 'Bill data is incomplete. Add and confirm the list above.' : 'No upcoming bills in the confirmed list.'}</Text>}
     <View style={styles.panel}>
       <Text style={styles.heading}>How do you want to spend?</Text>
-      <Field label="Next payday (YYYY-MM-DD)" value={payday} onChangeText={v => { setPayday(v); setReviewing(false); }} />
       <Field label="Reduce dining by (%)" value={reduction} onChangeText={v => { setReduction(v); setReviewing(false); }} numeric />
       <Text style={styles.body}>Which category should keep its historical pace first?</Text>
       <View style={styles.row}>{['groceries', 'transport', 'dining'].map(id => <Button key={id} secondary={protect !== id} onPress={() => { setProtect(id); setReviewing(false); }}>{id}</Button>)}</View>
@@ -91,7 +89,7 @@ export default function Banking() {
       <Button onPress={() => { setReviewing(true); setNotice(''); }}>Review proposed budget</Button>
     </View>
     {reviewing && <View style={styles.panel}>
-      <Text style={styles.heading}>Plan until {proposal.payday}</Text>
+      <Text style={styles.heading}>Plan for {proposal.periodLabel}</Text>
       <Text style={styles.body}>Account balance: {money(proposal.balanceCents)}{'\n'}Upcoming bills reserved: −{money(proposal.billsCents)}{'\n'}Goal contribution reserved: −{money(proposal.savingsCents)}{'\n'}Available for category spending: {money(proposal.availableCents)}</Text>
       {proposal.allocations.map(c => <Text key={c.id} style={styles.body}>{c.name}: {money(c.limit)}</Text>)}
       {proposal.unallocatedCents > 0 && <Text style={styles.body}>Unallocated: {money(proposal.unallocatedCents)}{'\n'}Categories are capped at your recent spending pace, so this is left over. Raise a limit in Budget to use it.</Text>}

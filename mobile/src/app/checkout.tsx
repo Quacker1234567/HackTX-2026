@@ -35,15 +35,15 @@ function Dashboard({ initialCategory }: { initialCategory: string }) {
   const visualPreview = previewCents || estimate || 0;
   const usedWidth = category.limit > 0 ? Math.max(0, Math.min(100, category.spent / category.limit * 100)) : 0;
   const cutoutWidth = category.limit > 0 ? Math.min(100 - usedWidth, visualPreview / category.limit * 100) : 0;
-  const planNeedsReview = !!budget.plan && (budget.plan.snapshotAt !== budget.bank?.importedAt || budget.plan.payday < dayKey(new Date()));
+  const planNeedsReview = !!budget.plan && (budget.plan.snapshotAt !== budget.bank?.importedAt || budget.plan.periodEnd < dayKey(new Date()));
   const notice = message || nessie.message;
   function clearPreviews() { setPending(null); setMessage(''); }
   if (!ready) return <Text style={styles.notice}>Loading your budget…</Text>;
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.page}>
     <View><Text style={styles.title}>See it before you spend it.</Text><Text style={styles.body}>Your budget, in the moment.</Text></View>
     <Text style={styles.notice}>{live ? 'Live Nessie sandbox · Whole dollars · Writes a real sandbox transaction' : 'Rehearsal · Simulated locations · Nothing is sent to Nessie'}</Text>
-    {budget.plan && <View style={styles.panel}><Text style={styles.heading}>Spendable under your approved plan</Text><Text style={styles.title}>{money(categories.reduce((sum, c) => sum + Math.max(0, c.limit - c.spent), 0))}</Text><Text style={styles.body}>Until {budget.plan.payday}. Bills reserve: {money(budget.plan.billsCents)}. Savings reserve: {money(budget.plan.savingsCents)}. Historical bank purchases are not subtracted again.</Text></View>}
-    {planNeedsReview && <Text style={styles.notice}>New bank data or a past payday needs review. Approve a new plan in Banking before confirming more purchases.</Text>}
+    {budget.plan && <View style={styles.panel}><Text style={styles.heading}>Spendable under your approved plan</Text><Text style={styles.title}>{money(categories.reduce((sum, c) => sum + Math.max(0, c.limit - c.spent), 0))}</Text><Text style={styles.body}>For {budget.plan.periodLabel}. Bills reserve: {money(budget.plan.billsCents)}. Savings reserve: {money(budget.plan.savingsCents)}. Historical bank purchases are not subtracted again.</Text></View>}
+    {planNeedsReview && <Text style={styles.notice}>New bank data or a finished month needs review. Approve a new plan in Banking before confirming more purchases.</Text>}
     {outstanding && <Text style={styles.notice}>A submitted Nessie request is still open below. Resolve it before changing the merchant or category, so its saved details keep matching.</Text>}
     {!!budget.bank && <View style={{ gap: 12 }}><Text style={styles.heading}>Simulate a merchant location</Text><View style={styles.row}>{budget.bank.merchants.filter(m => budget.categories.some(c => c.id === m.categoryId)).slice(0, 12).map(m => <Button key={m.id} secondary={merchantId !== m.id} disabled={outstanding} onPress={() => { setMerchantId(m.id); select(m.categoryId); clearPreviews(); if (attempt) void nessie.run(nessie.cancel); }}>{m.name}</Button>)}</View>{merchant && <Text style={styles.body}>{merchant.name}{merchant.location ? ` · ${merchant.location.latitude.toFixed(3)}, ${merchant.location.longitude.toFixed(3)}` : ''}. {estimate !== null ? `Estimated spend ${money(estimate)} from the median completed purchase here.` : 'No purchase history available for an estimate.'} Location is simulated.</Text>}</View>}
     {!!error && <Text accessibilityRole="alert" style={styles.notice}>{error}</Text>}

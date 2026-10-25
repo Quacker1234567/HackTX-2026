@@ -10,7 +10,7 @@ const bank = {
   bills: [{ id: 'bill', cents: 10000, date: '2026-10-30', status: 'pending', payee: 'Utilities' }], merchants: [], warnings: [],
 };
 const goal = { target: 10000, saved: 0, days: 100 };
-const prefs = { payday: '2026-11-07', diningReduction: 20, protectedCategory: 'groceries' };
+const prefs = { diningReduction: 20, protectedCategory: 'groceries' };
 test('missing bill data blocks approval until an explicit validated manual bill list is confirmed', () => {
   const incomplete = { ...bank, bills: [], billReviewRequired: true, warnings: ['Nessie bills could not be imported. Budget approval is blocked.'] };
   assert.equal(proposeBudget(incomplete, goal, prefs, now).canApprove, false);
@@ -33,9 +33,12 @@ test('history excludes pending/future/undated rows and deduplicates IDs', () => 
 test('proposal reserves upcoming bills and savings once, without resubtracting history or readding income', () => {
   const result = proposeBudget(bank, goal, prefs, now);
   assert.equal(result.billsCents, 10000);
-  assert.equal(result.savingsCents, 1400);
-  assert.equal(result.availableCents, 88600);
-  assert.equal(result.allocations.reduce((sum, c) => sum + c.limit, 0) + result.unallocatedCents, 88600);
+  assert.equal(result.savingsCents, 3100);
+  assert.equal(result.availableCents, 86900);
+  assert.equal(result.periodStart, '2026-10-01');
+  assert.equal(result.periodEnd, '2026-10-31');
+  assert.equal(result.days, 31);
+  assert.equal(result.allocations.reduce((sum, c) => sum + c.limit, 0) + result.unallocatedCents, 86900);
   assert.equal(result.canApprove, true);
   assert.equal(bank.account.balanceCents, 100000);
 });
@@ -46,20 +49,21 @@ test('dining preference actually lowers allocation and leaves the difference una
   assert.ok(reduced.unallocatedCents > full.unallocatedCents);
 });
 test('categories are capped at historical pace: surplus stays unallocated, scarcity sweeps only rounding dust', () => {
-  // $90 of history over 90 days, 14 days to payday: every category needs far less than the $886 available.
+  // $90 of history over 90 days scaled to a 31-day month: far less than the $590 available.
   const surplus = proposeBudget(bank, goal, prefs, now);
-  assert.equal(surplus.allocations.find(c => c.id === 'dining').limit, 623);
-  assert.equal(surplus.allocations.find(c => c.id === 'groceries').limit, 623);
+  assert.equal(surplus.allocations.find(c => c.id === 'dining').limit, 1378);
+  assert.equal(surplus.allocations.find(c => c.id === 'groceries').limit, 1378);
   assert.equal(surplus.allocations.find(c => c.id === 'other').limit, 0, 'surplus must not silently collect in Other');
-  assert.equal(surplus.unallocatedCents, 87354);
+  assert.equal(surplus.unallocatedCents, 84144);
   // Scaling down is unchanged: available funds are still fully distributed.
   const scarce = proposeBudget({ ...bank, purchases: purchases.map(p => ({ ...p, cents: 100000 })) }, goal, prefs, now);
-  assert.ok(scarce.allocations.find(c => c.id === 'dining').limit < 62223);
+  assert.ok(scarce.allocations.find(c => c.id === 'dining').limit < 137778);
   assert.equal(scarce.unallocatedCents, 0);
   assert.equal(scarce.allocations.reduce((sum, c) => sum + c.limit, 0), scarce.availableCents);
 });
 test('overdue bills, impossible dates, insufficient funds, and invalid preferences block approval', () => {
-  assert.equal(proposeBudget(bank, goal, { ...prefs, payday: '2026-02-31' }, now).canApprove, false);
+  // A bill due after this month is not reserved against this month's plan.
+  assert.equal(proposeBudget({ ...bank, bills: [{ ...bank.bills[0], date: '2026-12-01' }] }, goal, prefs, now).billsCents, 0);
   assert.equal(proposeBudget(bank, goal, { ...prefs, diningReduction: 101 }, now).canApprove, false);
   assert.equal(proposeBudget({ ...bank, account: { ...bank.account, balanceCents: 10 } }, goal, prefs, now).canApprove, false);
   assert.equal(proposeBudget({ ...bank, bills: [{ ...bank.bills[0], date: '2026-10-01' }] }, goal, prefs, now).canApprove, false);
@@ -71,8 +75,8 @@ test('merchant estimate uses completed purchase amounts only', () => {
 
 test('known Flow purchases absent from the sandbox balance are reserved once when replanning', () => {
   const result = proposeBudget({ ...bank, unreflectedPurchaseCents: 3500 }, goal, prefs, now);
-  assert.equal(result.availableCents, 85100);
-  assert.equal(result.allocations.reduce((sum, c) => sum + c.limit, 0) + result.unallocatedCents, 85100);
+  assert.equal(result.availableCents, 83400);
+  assert.equal(result.allocations.reduce((sum, c) => sum + c.limit, 0) + result.unallocatedCents, 83400);
   assert.equal(result.canApprove, true);
   assert.equal(proposeBudget({ ...bank, unreflectedPurchaseCents: -1 }, goal, prefs, now).canApprove, false);
 });

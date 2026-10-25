@@ -10,7 +10,7 @@ export default function Home() {
   const categories = categoriesWithSpend(budget);
   const goal = budget.goal;
   const name = settings.displayName.trim();
-  return <Screen title={name ? `${name}'s budget` : 'Your budget'} subtitle={budget.plan ? `Your approved plan until ${budget.plan.payday}` : 'A little clarity before your next purchase.'}>
+  return <Screen title={name ? `${name}'s budget` : 'Your budget'} subtitle={budget.plan ? `Your approved plan for ${budget.plan.periodLabel}` : 'A little clarity before your next purchase.'}>
     {!ready ? <Text style={styles.body}>Loading your budget…</Text> : <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.blue }} /><Text style={{ color: colors.muted, fontSize: 13 }}>{budget.plan ? 'Approved allocations' : 'Local demo allocations'}</Text></View>
       {/* An unfunded category has no bar to show. It stays editable in Budget. */}
