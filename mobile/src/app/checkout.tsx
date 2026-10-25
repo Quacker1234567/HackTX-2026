@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, colors, Field, styles } from '../components/ui';
-import { money, parseMoney, Transaction } from '../domain/budget';
+import { categoriesWithSpend, money, parseMoney, Transaction } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 import { useNessiePurchase } from '../state/useNessiePurchase';
 import { dayKey, estimateAtMerchant } from '../domain/banking';
@@ -22,7 +22,8 @@ function Dashboard({ initialCategory }: { initialCategory: string }) {
   const [rehearsal, setRehearsal] = useState(false);
   const merchant = budget.bank?.merchants.find(m => m.id === merchantId);
   const estimate = budget.bank && merchant ? estimateAtMerchant(budget.bank, merchant.id) : null;
-  const category = budget.categories.find(c => c.id === selected) ?? budget.categories[0];
+  const categories = categoriesWithSpend(budget);
+  const category = categories.find(c => c.id === selected) ?? categories[0];
   const remaining = category.limit - category.spent;
   const attempt = nessie.attempt;
   // Only a submitted request is unsafe to abandon; a preview can always be changed.
@@ -41,7 +42,7 @@ function Dashboard({ initialCategory }: { initialCategory: string }) {
   return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.page}>
     <View><Text style={styles.title}>See it before you spend it.</Text><Text style={styles.body}>Your budget, in the moment.</Text></View>
     <Text style={styles.notice}>{live ? 'Live Nessie sandbox · Whole dollars · Writes a real sandbox transaction' : 'Rehearsal · Simulated locations · Nothing is sent to Nessie'}</Text>
-    {budget.plan && <View style={styles.panel}><Text style={styles.heading}>Spendable under your approved plan</Text><Text style={styles.title}>{money(budget.categories.reduce((sum, c) => sum + c.limit - c.spent, 0))}</Text><Text style={styles.body}>Until {budget.plan.payday}. Bills reserve: {money(budget.plan.billsCents)}. Savings reserve: {money(budget.plan.savingsCents)}. Historical bank purchases are not subtracted again.</Text></View>}
+    {budget.plan && <View style={styles.panel}><Text style={styles.heading}>Spendable under your approved plan</Text><Text style={styles.title}>{money(categories.reduce((sum, c) => sum + Math.max(0, c.limit - c.spent), 0))}</Text><Text style={styles.body}>Until {budget.plan.payday}. Bills reserve: {money(budget.plan.billsCents)}. Savings reserve: {money(budget.plan.savingsCents)}. Historical bank purchases are not subtracted again.</Text></View>}
     {planNeedsReview && <Text style={styles.notice}>New bank data or a past payday needs review. Approve a new plan in Banking before confirming more purchases.</Text>}
     {outstanding && <Text style={styles.notice}>A submitted Nessie request is still open below. Resolve it before changing the merchant or category, so its saved details keep matching.</Text>}
     {!!budget.bank && <View style={{ gap: 12 }}><Text style={styles.heading}>Simulate a merchant location</Text><View style={styles.row}>{budget.bank.merchants.filter(m => budget.categories.some(c => c.id === m.categoryId)).slice(0, 12).map(m => <Button key={m.id} secondary={merchantId !== m.id} disabled={outstanding} onPress={() => { setMerchantId(m.id); select(m.categoryId); clearPreviews(); if (attempt) void nessie.run(nessie.cancel); }}>{m.name}</Button>)}</View>{merchant && <Text style={styles.body}>{merchant.name}{merchant.location ? ` · ${merchant.location.latitude.toFixed(3)}, ${merchant.location.longitude.toFixed(3)}` : ''}. {estimate !== null ? `Estimated spend ${money(estimate)} from the median completed purchase here.` : 'No purchase history available for an estimate.'} Location is simulated.</Text>}</View>}

@@ -13,7 +13,7 @@ export default function Banking() {
   const [billAmount, setBillAmount] = useState('');
   const [billDate, setBillDate] = useState('');
   const [billError, setBillError] = useState('');
-  const [payday, setPayday] = useState(() => { const date = new Date(); date.setDate(date.getDate() + 14); return dayKey(date); });
+  const [payday, setPayday] = useState(() => { const date = new Date(); date.setDate(date.getDate() + 30); return dayKey(date); });
   const [reduction, setReduction] = useState('20');
   const [protect, setProtect] = useState('groceries');
   const [reviewing, setReviewing] = useState(false);

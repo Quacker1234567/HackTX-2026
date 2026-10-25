@@ -2,17 +2,20 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { Screen, Progress, Icon } from '../components/design';
 import { colors, styles } from '../components/ui';
-import { displayMoney } from '../domain/budget';
+import { categoriesWithSpend, displayMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
 export default function Home() {
   const { budget, settings, ready, error } = useBudget();
+  const categories = categoriesWithSpend(budget);
   const goal = budget.goal;
   const name = settings.displayName.trim();
   return <Screen title={name ? `${name}'s budget` : 'Your budget'} subtitle={budget.plan ? `Your approved plan until ${budget.plan.payday}` : 'A little clarity before your next purchase.'}>
     {!ready ? <Text style={styles.body}>Loading your budget…</Text> : <>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.blue }} /><Text style={{ color: colors.muted, fontSize: 13 }}>{budget.plan ? 'Approved allocations' : 'Local demo allocations'}</Text></View>
-      {budget.categories.map(category => {
+      {/* An unfunded category has no bar to show. It stays editable in Budget. */}
+      {!categories.some(c => c.limit > 0) && <Text style={styles.body}>No category has funds yet. Set a limit in Budget, or approve a plan in Tools → Banking.</Text>}
+      {categories.filter(category => category.limit > 0).map(category => {
         const remaining = Math.max(0, category.limit - category.spent);
         return <View key={category.id} accessible accessibilityLabel={`${category.name}: ${displayMoney(remaining, settings.hideBalances)} left`} style={[styles.panel, { overflow: 'hidden', gap: 18 }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
