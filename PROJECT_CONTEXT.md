@@ -12,9 +12,10 @@ Android phone and eventually a small ESP32-connected screen.
 The agreed stack is Expo/React Native, Firebase, Nessie sandbox data, and ESP32
 communication over Wi-Fi. Android is the primary target, with web kept as a
 fallback. The UI follows the supplied wallet-app reference: cool gray background,
-white rounded cards, thin blue progress bars, and a floating four-item navigation
-bar. Blue/navy and red come from the Capital One direction. Keep the interface
-focused; development controls belong in Tools.
+white rounded cards, thin blue progress bars, and a floating five-item navigation
+bar (Home, Goal, Budget, Settings, Tools). Blue/navy and red come from the
+Capital One direction. Keep Home focused on remaining balances; ordinary
+preferences belong in Settings; development controls belong in Tools.
 
 Android system navigation is hidden using SDK 58's `expo-navigation-bar`; users
 can swipe from the bottom edge to reveal it temporarily. The app's own tabs stay
@@ -24,11 +25,20 @@ reload/rebuild; browser previews cannot verify the system bar.
 
 ## What works now
 
-- **Home:** category balances and progress, bank summary, saving-goal summary.
-- **Goal:** edit name, target, and duration; show saved amount and required daily
-  pace. Saving a goal does not transfer money or automatically approve a plan.
-- **Budget:** edit category limits. Limits cannot fall below spending already
-  committed or exceed an approved plan’s funds after bills and savings.
+- **Home:** remaining category balances and progress (display-only; cards no
+  longer open checkout), a saving-goal summary, and a title that uses the
+  display name when one is set. Bank connection is no longer on Home.
+- **Goal:** name-first view of saved amount, remaining days, and required daily
+  pace; edit name, target, and duration. Saving a goal does not transfer money
+  or automatically approve a plan.
+- **Budget:** edit each category limit in place. Limits cannot fall below
+  spending already committed or exceed an approved plan’s funds after bills
+  and savings.
+- **Settings:** open the imported Nessie account or start a connection, set a
+  display name, and toggle hide-balances / purchase-alerts / goal-reminders.
+  Preferences persist on this device. Hide balances covers Home, Goal, Budget,
+  and the Settings bank amount. Alerts and reminders are stored only; Flow
+  does not send push notifications yet.
 - **Tools → Connections:** create a Firebase anonymous connection ID, load Nessie
   accounts, import one account’s snapshot, manually save a Firestore snapshot,
   and manually send a Dining budget payload to an ESP32 endpoint.
@@ -39,9 +49,10 @@ reload/rebuild; browser previews cannot verify the system bar.
   purchase confirmation. Confirmed spending updates the local budget once.
 - **Tools → Transaction history:** imported purchases/deposits and local confirmed
   purchases, with source filters and status labels.
-- Budget state is saved on the device with AsyncStorage. Imported history remains
-  available after the backend stops. Firestore saving is manual; there is no
-  automatic cloud restore or cross-device synchronization flow yet.
+- Budget state and device settings are saved on the device with AsyncStorage
+  (separate keys). Imported history remains available after the backend stops.
+  Firestore saving is manual; there is no automatic cloud restore or
+  cross-device synchronization flow yet. Settings do not sync.
 
 The project owner has successfully imported live Nessie sandbox purchasing history
 through the local backend and tunnel. The Android-focused UI was checked at phone
@@ -52,7 +63,8 @@ substitute for checking the latest UI on a physical Android device.
 
 ```text
 Android app / Expo Go
-  ├─ AsyncStorage: local budget, imported snapshot, local purchase history
+  ├─ AsyncStorage: local budget, imported snapshot, local purchase history,
+  │                and device settings
   ├─ Firebase Authentication: anonymous identity and ID token
   ├─ Firestore: manual per-user snapshot upload
   ├─ HTTPS Cloudflare tunnel → laptop backend on 127.0.0.1:8787
@@ -62,12 +74,17 @@ Android app / Expo Go
 ```
 
 - `mobile/src/app/_layout.tsx`: navigation and Android-safe bottom spacing.
-- `mobile/src/app/index.tsx`, `goals.tsx`, `budget.tsx`, `tools.tsx`: main tabs.
+- `mobile/src/app/index.tsx`, `goals.tsx`, `budget.tsx`, `settings.tsx`,
+  `tools.tsx`: main tabs.
 - `mobile/src/app/banking.tsx`, `connections.tsx`, `checkout.tsx`,
-  `transactions.tsx`: testing/detail screens reached from Tools.
+  `transactions.tsx`: testing/detail screens reached from Tools. Settings
+  also links to Connections or Banking when a bank card is tapped.
 - `mobile/src/components/ui.tsx`, `design.tsx`: shared visual tokens and controls.
-- `mobile/src/state/BudgetProvider.tsx`: device persistence and budget mutations.
-- `mobile/src/domain/budget.ts`: local purchase, allocation, money, and goal logic.
+- `mobile/src/state/BudgetProvider.tsx`: device persistence for budget and
+  settings, plus budget mutations.
+- `mobile/src/domain/budget.ts`: local purchase, allocation, money, hidden
+  money display, and goal logic.
+- `mobile/src/domain/settings.ts`: display name and preference parsing.
 - `mobile/src/domain/banking.ts`: snapshot types, history analysis, estimates,
   manual bill review, and budget proposal calculations.
 - `mobile/src/services/`: Firebase, banking callable client, ESP32 adapter.
@@ -147,10 +164,11 @@ Expo after changing environment values. The temporary tunnel URL usually changes
 when the tunnel restarts. Expo’s development tunnel and Cloudflare’s backend
 tunnel are separate processes with different jobs.
 
-In **Tools → Connections**, create a connection ID. The owner of the backend you
-are using must add that UID to its `NESSIE_ALLOWED_UIDS` and restart that backend.
-Then load accounts and select the desired sample account. Preserve other testers’
-UIDs. Expo Go and an installed APK may have different identities.
+Start from **Settings** (bank card) or **Tools → Connections**, then create a
+connection ID. The owner of the backend you are using must add that UID to its
+`NESSIE_ALLOWED_UIDS` and restart that backend. Then load accounts and select
+the desired sample account. Preserve other testers’ UIDs. Expo Go and an
+installed APK may have different identities.
 
 Teammates may use one shared running backend/tunnel instead of each hosting one.
 That backend’s laptop and tunnel must stay running, and its allowlist must contain
@@ -211,12 +229,14 @@ not bills written to Nessie.
    A stable hosted backend or stable tunnel address is future work; coordinate
    hosting and cost choices. Building an APK does not host the backend.
 5. **Planning polish:** resolve Nessie bills upstream where possible, review goal
-   changes against approved plans, and verify transaction/income reconciliation
-   once remote writes exist. Real geolocation is not implemented; locations are
-   simulated selections.
+  changes against approved plans, and verify transaction/income reconciliation
+  once remote writes exist. Real geolocation is not implemented; locations are
+  simulated selections. Purchase-alert and goal-reminder toggles are stored
+  preferences only; they do not send notifications.
 6. **Persistence polish:** add a deliberate cloud restore/sync flow if needed;
-   current anonymous identities and manual Firestore snapshots are not account
-   recovery. Handle conflict/reimport behavior explicitly.
+  current anonymous identities and manual Firestore snapshots are not account
+  recovery. Handle conflict/reimport behavior explicitly. Device settings stay
+  local with the budget.
 
 Split work across files where possible: UI/navigation, Nessie/backend, ESP32
 firmware, or Android verification are useful parallel team ownership areas.
@@ -239,10 +259,12 @@ From `backend/`:
 npm test
 ```
 
-At handoff: 11 mobile tests and 8 backend tests passed; mobile lint/type checking
+At handoff: 13 mobile tests and 8 backend tests passed; mobile lint/type checking
 and Android export passed. Core preview flows checked: goal save, valid/invalid
-allocation save, purchase preview/confirmation, history, and Tools navigation.
-ESP32 firmware and the redesigned UI on physical Android remain unverified.
+in-place allocation save, purchase preview/confirmation, history, Settings
+display name and hide-balances, and Tools navigation. Home category cards are
+display-only; checkout is reached from Tools. ESP32 firmware and the redesigned
+UI on physical Android remain unverified.
 
 For an installed Android APK, follow README’s EAS preview instructions. Configure
 all public client environment values in EAS; ignored local .env files are not a

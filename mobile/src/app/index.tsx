@@ -19,7 +19,7 @@ export default function Home() {
             <Text style={[styles.heading, { flexShrink: 1 }]}>{category.name}</Text>
             <Text style={[styles.heading, { fontWeight: '400', flexShrink: 1, textAlign: 'right' }]}>{displayMoney(remaining, settings.hideBalances)} left</Text>
           </View>
-          <Progress value={category.limit ? remaining / category.limit : 0} label={`${category.name} remaining`} />
+          <Progress value={category.limit ? category.spent / category.limit : 0} label={`${category.name} used`} />
         </View>;
       })}
       <Text style={[styles.heading, { marginTop: 4 }]}>Saving goal</Text>

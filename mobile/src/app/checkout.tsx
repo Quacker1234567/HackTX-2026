@@ -23,8 +23,8 @@ function Dashboard({ initialCategory }: { initialCategory: string }) {
   const remaining = category.limit - category.spent;
   const preview = pending?.cents ?? 0;
   const visualPreview = pending?.cents ?? estimate ?? 0;
-  const availableWidth = category.limit > 0 ? Math.max(0, Math.min(100, remaining / category.limit * 100)) : 0;
-  const cutoutWidth = category.limit > 0 ? Math.min(availableWidth, visualPreview / category.limit * 100) : 0;
+  const usedWidth = category.limit > 0 ? Math.max(0, Math.min(100, category.spent / category.limit * 100)) : 0;
+  const cutoutWidth = category.limit > 0 ? Math.min(100 - usedWidth, visualPreview / category.limit * 100) : 0;
   const planNeedsReview = !!budget.plan && (budget.plan.snapshotAt !== budget.bank?.importedAt || budget.plan.payday < dayKey(new Date()));
   if (!ready) return <Text style={styles.notice}>Loading your budget…</Text>;
   return <ScrollView contentContainerStyle={styles.page}>
@@ -38,8 +38,8 @@ function Dashboard({ initialCategory }: { initialCategory: string }) {
     <View style={[styles.panel, { backgroundColor: colors.navy, borderColor: colors.navy, gap: 20 }]}>
       <Text style={{ color: '#D2E6F5', fontSize: 16 }}>{category.name} remaining</Text>
       <Text style={{ color: 'white', fontSize: 54, fontWeight: '700', letterSpacing: -2 }}>{money(remaining)}</Text>
-      <View accessibilityLabel={`${money(remaining)} remaining out of ${money(category.limit)}. Purchase preview ${money(visualPreview)}.`} style={{ height: 42, backgroundColor: '#426F8C', borderRadius: 6, overflow: 'hidden', flexDirection: 'row' }}>
-        <View style={{ width: `${availableWidth - cutoutWidth}%`, backgroundColor: '#FFFFFF' }} />
+      <View accessibilityLabel={`${money(category.spent)} used of ${money(category.limit)}. Purchase preview ${money(visualPreview)}.`} style={{ height: 42, backgroundColor: '#426F8C', borderRadius: 6, overflow: 'hidden', flexDirection: 'row' }}>
+        <View style={{ width: `${usedWidth}%`, backgroundColor: '#FFFFFF' }} />
         <View style={{ width: `${cutoutWidth}%`, backgroundColor: '#F4A69E', borderWidth: visualPreview ? 2 : 0, borderStyle: 'dashed', borderColor: colors.red }} />
       </View>
       <Text style={{ color: 'white', lineHeight: 22 }}>{pending ? `${money(preview)} actual purchase cutout · ${money(remaining - preview)} after confirmation` : estimate !== null ? `${money(estimate)} estimated cutout · Enter the actual amount below` : `${money(category.spent)} spent of ${money(category.limit)} budgeted`}</Text>

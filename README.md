@@ -125,19 +125,38 @@ normally appear through Fast Refresh; environment changes require restarting Exp
 
 Android's system navigation buttons/gesture strip are configured to hide while
 Flow is open and appear temporarily with a swipe from the bottom edge. The app's
-Home/Goal/Budget/Tools tabs remain visible. After installing dependency changes,
-restart Expo and reopen the app. Native appearance configuration requires a new
-APK for an installed build; verify the behavior on your Android device.
+Home/Goal/Budget/Settings/Tools tabs remain visible. After installing dependency
+changes, restart Expo and reopen the app. Native appearance configuration
+requires a new APK for an installed build; verify the behavior on your Android
+device.
+
+The main tabs are **Home**, **Goal**, **Budget**, **Settings**, and **Tools**.
+
+- **Home** shows remaining category balances and a saving-goal summary. Category
+  cards are display-only and do not open checkout. Bank connection is no longer
+  on Home.
+- **Goal** leads with the goal name and saved amount; you can edit name, target,
+  and duration there.
+- **Budget** edits each category limit in place.
+- **Settings** is where you connect or open the imported Nessie account, set a
+  display name, and toggle hide-balances, purchase alerts, and goal reminders.
+  Hide balances covers Home, Goal, Budget, and the Settings bank amount.
+  Alerts and reminders stay on this device; Flow does not send push
+  notifications yet.
+- **Tools** still holds Connections, Banking, purchase testing, and transaction
+  history.
 
 In Flow:
 
-1. Open **Tools → Connections** in the Android app.
+1. Open **Settings** and tap the bank card, or go to **Tools → Connections**.
 2. On a new installation, tap **Create connection ID**. Add that ID to
    `NESSIE_ALLOWED_UIDS` in `backend/.env.hacktx26`, then restart only the backend
    terminal. Multiple tester IDs can be separated by commas.
 3. Tap **Load Nessie accounts** and choose **Flow funded demo checking** for the
    funded sample. The original zero-balance demo account is also preserved.
-4. Open **Tools → Banking** to inspect the imported data. **Tools** also includes purchase testing and transaction history. The main tabs are **Home**, **Goal**, **Budget**, and **Tools**.
+4. Open **Tools → Banking** to inspect the imported data. Use **Tools → Test a
+   purchase** to preview and confirm local spending; Home no longer opens that
+   screen. **Tools → Transaction history** lists imported and local activity.
 
 If a process is already running, reuse its terminal; do not start a second copy
 on the same port. An EAS cloud build can run while you use Expo Go.
@@ -193,8 +212,10 @@ close the build terminal once EAS has finished; leave the backend and Cloudflare
 running for Nessie access.
 
 The APK has its own app storage and may create a different Firebase connection
-ID from Expo Go. Add that new ID to `NESSIE_ALLOWED_UIDS` using Connections and
-restart the backend. Do not remove other testers' IDs.
+ID from Expo Go. Add that new ID to `NESSIE_ALLOWED_UIDS` from **Settings** or
+**Tools → Connections**, then restart the backend. Do not remove other testers'
+IDs. Device settings (display name, hide balances, alert toggles) stay on that
+installation and do not sync.
 
 To include later app-code or environment changes, create and install another
 preview build. Over-the-air updates are not configured. A build already in
@@ -215,7 +236,11 @@ URL if changed, then choose Option A or Option B.
   a schema error. Banking offers an explicitly confirmed manual bill list and
   labels it accordingly; budget approval stays blocked until bills are reviewed.
 - Checkout confirmation currently changes local demo state. It does not submit
-  a new purchase to Nessie or process a real payment.
+  a new purchase to Nessie or process a real payment. Reach checkout from
+  **Tools → Test a purchase**, not from Home category cards.
+- Settings preferences persist only on this device. Hide balances replaces
+  dollar amounts with dots; purchase alerts and goal reminders do not send
+  notifications yet.
 - ESP32 integration is a separate manual Wi-Fi adapter; see [its contract](docs/esp32.md).
 
 For a demo with no laptop terminals, the backend needs a permanent hosted address.
