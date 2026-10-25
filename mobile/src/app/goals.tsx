@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Screen, Progress, Icon } from '../components/design';
+import { Screen, Progress } from '../components/design';
 import { Button, colors, Field, styles } from '../components/ui';
 import { dailyGoalReserve, money, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
@@ -25,8 +25,11 @@ export default function Goals() {
         setGoal({ ...goal, name: name.trim(), target, days: duration }); setEditing(false); setMessage('Goal saved.');
       }}>Save goal</Button><Button secondary onPress={() => { setEditing(false); setMessage(''); }}>Cancel</Button>
     </View> : <View style={[styles.panel, { minHeight: 430, justifyContent: 'center', gap: 28, paddingVertical: 42 }]}>
-      <View style={{ alignItems: 'center', gap: 14 }}><View style={{ padding: 16, borderRadius: 32, backgroundColor: '#EDF5FA' }}><Icon name="goal" size={32} /></View><Text style={styles.heading}>{goal.name}</Text></View>
-      <View style={{ alignItems: 'center', gap: 8 }}><Text style={{ color: colors.ink, fontSize: 40, letterSpacing: -1.5, fontWeight: '700', textAlign: 'center' }}>{goal.saved >= goal.target ? 'Goal reached' : `${goal.days} days to go`}</Text><Text style={styles.body}>{money(goal.saved)} / {money(goal.target)}</Text></View>
+      <Text style={{ color: colors.ink, fontSize: 40, letterSpacing: -1.5, fontWeight: '700', textAlign: 'center' }}>{goal.name}</Text>
+      <View style={{ alignItems: 'center', gap: 8 }}>
+        <Text style={[styles.heading, { textAlign: 'center' }]}>{money(goal.saved)} / {money(goal.target)}</Text>
+        <Text style={styles.body}>{goal.saved >= goal.target ? 'Goal reached' : `${goal.days} days to go`}</Text>
+      </View>
       <Progress value={goal.target ? goal.saved / goal.target : 0} label="Saving goal progress" />
       <Text style={[styles.body, { textAlign: 'center' }]}>{money(dailyGoalReserve(goal))} per day to reach your target</Text>
       <Button secondary onPress={() => { setName(goal.name); setAmount(String(goal.target / 100)); setDays(String(goal.days)); setMessage(''); setEditing(true); }}>Edit goal</Button>

@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, styles } from './ui';
 
-export type IconName = 'home' | 'goal' | 'budget' | 'tools' | 'arrow' | 'bank' | 'history' | 'purchase';
-export function Icon({ name, color = colors.blue, size = 24 }: { name: IconName; color?: string; size?: number }) {
-  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+export type IconName = 'home' | 'goal' | 'budget' | 'tools' | 'arrow' | 'bank' | 'history' | 'purchase' | 'pencil';
+export function Icon({ name, color = colors.blue, size = 24, strokeWidth = 1.8 }: { name: IconName; color?: string; size?: number; strokeWidth?: number }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
     {name === 'home' && <Path d="m3 10 9-7 9 7v10H15v-7H9v7H3Z" />}
     {name === 'goal' && <><Circle cx="12" cy="12" r="9" /><Circle cx="12" cy="12" r="5" /><Circle cx="12" cy="12" r="1" /></>}
     {name === 'budget' && <><Rect x="5" y="4" width="14" height="17" rx="2" /><Path d="M9 3h6v4H9zM9 12h6M9 16h4" /></>}
@@ -15,6 +15,7 @@ export function Icon({ name, color = colors.blue, size = 24 }: { name: IconName;
     {name === 'bank' && <Path d="m3 8 9-5 9 5H3ZM5 11v6m7-6v6m7-6v6M3 21h18M3 18h18" />}
     {name === 'history' && <><Path d="M3 10a9 9 0 1 1 0 5M3 4v6h6M12 7v5l3 2" /></>}
     {name === 'purchase' && <><Path d="M3 4h2l3 12h10l3-9H6M9 20h.01M18 20h.01" /><Circle cx="9" cy="20" r="1" /><Circle cx="18" cy="20" r="1" /></>}
+    {name === 'pencil' && <Path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />}
   </Svg>;
 }
 export function Screen({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
