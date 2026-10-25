@@ -123,6 +123,12 @@ npx expo start --go --tunnel --clear
 Scan the QR code in Expo Go. Keep all three terminals running. App-code changes
 normally appear through Fast Refresh; environment changes require restarting Expo.
 
+Android's system navigation buttons/gesture strip are configured to hide while
+Flow is open and appear temporarily with a swipe from the bottom edge. The app's
+Home/Goal/Budget/Tools tabs remain visible. After installing dependency changes,
+restart Expo and reopen the app. Native appearance configuration requires a new
+APK for an installed build; verify the behavior on your Android device.
+
 In Flow:
 
 1. Open **Tools → Connections** in the Android app.

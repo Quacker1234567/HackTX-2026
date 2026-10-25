@@ -1,7 +1,8 @@
 import { router, Tabs, usePathname } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { NavigationBar as SystemNavigationBar } from 'expo-navigation-bar';
 import { BudgetProvider } from '../state/BudgetProvider';
 import { colors } from '../components/ui';
 import { Icon, IconName } from '../components/design';
@@ -25,7 +26,7 @@ function Navigation() {
   </View>;
 }
 export default function Layout() {
-  return <BudgetProvider><StatusBar style="dark" /><Tabs tabBar={() => <Navigation />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.paper }, headerTintColor: colors.navy, headerStyle: { backgroundColor: colors.paper } }}>
+  return <BudgetProvider><StatusBar style="dark" />{Platform.OS === 'android' && <SystemNavigationBar hidden style="dark" />}<Tabs tabBar={() => <Navigation />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.paper }, headerTintColor: colors.navy, headerStyle: { backgroundColor: colors.paper } }}>
     <Tabs.Screen name="index" options={{ title: 'Home' }} />
     <Tabs.Screen name="goals" options={{ title: 'Goal' }} />
     <Tabs.Screen name="budget" options={{ title: 'Budget' }} />

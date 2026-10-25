@@ -16,6 +16,12 @@ white rounded cards, thin blue progress bars, and a floating four-item navigatio
 bar. Blue/navy and red come from the Capital One direction. Keep the interface
 focused; development controls belong in Tools.
 
+Android system navigation is hidden using SDK 58's `expo-navigation-bar`; users
+can swipe from the bottom edge to reveal it temporarily. The app's own tabs stay
+visible. Native plugin settings remove the contrast scrim and use dark system
+buttons over the light app background. Check this on physical Android after a
+reload/rebuild; browser previews cannot verify the system bar.
+
 ## What works now
 
 - **Home:** category balances and progress, bank summary, saving-goal summary.
