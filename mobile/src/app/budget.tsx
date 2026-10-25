@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { Icon, Screen } from '../components/design';
 import { colors, styles } from '../components/ui';
-import { money, parseMoney } from '../domain/budget';
+import { displayMoney, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
 export default function BudgetScreen() {
-  const { budget, ready, setLimits } = useBudget();
+  const { budget, settings, ready, setLimits } = useBudget();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [message, setMessage] = useState('');
@@ -32,7 +32,7 @@ export default function BudgetScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           {editingId === category.id
             ? <TextInput accessibilityLabel={`${category.name} budget`} value={draft} onChangeText={setDraft} keyboardType="decimal-pad" autoFocus onSubmitEditing={save} style={[styles.input, { minWidth: 104, textAlign: 'right', paddingVertical: 8, fontSize: 20 }]} />
-            : <Text style={{ fontSize: 20, color: colors.ink }}>{money(category.limit)}</Text>}
+            : <Text style={{ fontSize: 20, color: colors.ink }}>{displayMoney(category.limit, settings.hideBalances)}</Text>}
           <Pressable accessibilityRole="button" accessibilityLabel={editingId === category.id ? `Save ${category.name} budget` : `Edit ${category.name} budget`} onPress={() => {
             if (editingId === category.id) { save(); return; }
             if (editingId && !save()) return;
