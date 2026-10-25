@@ -14,6 +14,7 @@ export const seedBudget = (): Budget => ({
   goal: { name: 'Emergency fund', target: 100000, saved: 25000, days: 90 },
 });
 export const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+export const displayMoney = (cents: number, hide: boolean) => hide ? '••••' : money(cents);
 export function parseMoney(value: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(value.trim())) return null;
   const cents = Math.round(Number(value) * 100);
