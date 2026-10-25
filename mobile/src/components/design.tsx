@@ -1,8 +1,12 @@
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
+import { useFocusEffect } from 'expo-router';
+import Animated, { cancelAnimation, Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { colors, radius, styles } from './ui';
+import { colors, radius, styles, useReduceMotion } from './ui';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export type IconName = 'home' | 'goal' | 'budget' | 'settings' | 'tools' | 'arrow' | 'bank' | 'history' | 'purchase' | 'pencil';
 
@@ -45,13 +49,25 @@ export function GoalRing({ value, label, size = 208, children }: { value: number
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
   const track = circumference * 0.8;
-  const filled = track * Math.max(0, Math.min(1, value));
+  const target = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  const reduced = useReduceMotion();
+  const progress = useSharedValue(0);
+  useFocusEffect(useCallback(() => {
+    cancelAnimation(progress);
+    progress.set(reduced ? target : 0);
+    if (!reduced) progress.set(withDelay(260, withTiming(target, { duration: 550, easing: Easing.bezier(0.77, 0, 0.175, 1) })));
+    return () => cancelAnimation(progress);
+  }, [progress, target, reduced]));
+  const animatedProps = useAnimatedProps(() => {
+    const filled = track * progress.get();
+    return { strokeDasharray: [filled, circumference - filled], strokeOpacity: filled > 0 ? 1 : 0 };
+  });
   const start = 90 + 36;
   const percent = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return <View accessibilityRole="progressbar" accessibilityLabel={label} accessibilityValue={{ min: 0, max: 100, now: percent }} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
     <Svg width={size} height={size} style={{ position: 'absolute' }}>
       <Circle cx={center} cy={center} r={radius} stroke={colors.well} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={`${track} ${circumference - track}`} transform={`rotate(${start} ${center} ${center})`} />
-      {filled > 0 && <Circle cx={center} cy={center} r={radius} stroke={colors.navy} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={`${filled} ${circumference - filled}`} transform={`rotate(${start} ${center} ${center})`} />}
+      <AnimatedCircle animatedProps={animatedProps} cx={center} cy={center} r={radius} stroke={colors.navy} strokeWidth={stroke} fill="none" strokeLinecap="round" transform={`rotate(${start} ${center} ${center})`} />
     </Svg>
     <View style={{ alignItems: 'center', justifyContent: 'center', gap: 2 }}>{children}</View>
   </View>;
@@ -59,8 +75,17 @@ export function GoalRing({ value, label, size = 208, children }: { value: number
 
 export function Progress({ value, label, onNavy = false, fill, flush = false }: { value: number; label: string; onNavy?: boolean; fill?: string; flush?: boolean }) {
   const percent = Math.max(0, Math.min(100, value * 100));
+  const reduced = useReduceMotion();
+  const width = useSharedValue(reduced ? percent : 0);
+  useFocusEffect(useCallback(() => {
+    cancelAnimation(width);
+    width.set(reduced ? percent : 0);
+    if (!reduced) width.set(withDelay(80, withTiming(percent, { duration: 850, easing: Easing.inOut(Easing.cubic) })));
+    return () => cancelAnimation(width);
+  }, [percent, reduced, width]));
+  const fillStyle = useAnimatedStyle(() => ({ width: `${width.get()}%` as `${number}%` }));
   return <View accessibilityRole="progressbar" accessibilityLabel={label} accessibilityValue={{ min: 0, max: 100, now: Math.round(percent) }} style={{ width: '100%', height: flush ? 6 : 4, backgroundColor: onNavy ? colors.navyDeep : colors.well, borderRadius: flush ? 0 : radius.pill, overflow: 'hidden' }}>
-    <View style={{ width: `${percent}%`, height: '100%', borderRadius: flush ? 0 : radius.pill, backgroundColor: onNavy ? colors.white : fill ?? colors.blue }} />
+    <Animated.View style={[{ position: 'absolute', left: 0, height: '100%', borderRadius: flush ? 0 : radius.pill, backgroundColor: onNavy ? colors.white : fill ?? colors.blue }, fillStyle]} />
   </View>;
 }
 

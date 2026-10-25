@@ -1,10 +1,10 @@
 import { router, Tabs, usePathname } from 'expo-router';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Easing, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationBar as SystemNavigationBar } from 'expo-navigation-bar';
 import { BudgetProvider } from '../state/BudgetProvider';
-import { colors, PressScale, radius, shadow } from '../components/ui';
+import { colors, PressScale, radius, shadow, useReduceMotion } from '../components/ui';
 import { Icon, IconName } from '../components/design';
 
 const destinations = [
@@ -24,7 +24,7 @@ function Navigation() {
       {destinations.map(d => {
         const selected = active === d.path;
         return <Pressable key={d.path} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={d.label} android_ripple={{ color: colors.mist, borderless: false }} onPress={() => router.navigate(d.path)} style={{ flex: 1, minHeight: 58, borderRadius: radius.navItem, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? colors.navy : 'transparent' }}>
-          <Icon name={d.icon as IconName} size={22} color={selected ? colors.white : colors.muted} strokeWidth={selected ? 2.2 : 1.6} filled={selected} />
+          <Icon name={d.icon as IconName} size={22} color={selected ? colors.white : colors.muted} strokeWidth={selected ? 2.2 : 1.6} filled={false} />
           <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: selected ? '700' : '500', color: selected ? colors.white : colors.muted }}>{d.label}</Text>
         </Pressable>;
       })}
@@ -33,10 +33,13 @@ function Navigation() {
 }
 
 export default function Layout() {
+  const { width } = useWindowDimensions();
+  const reduced = useReduceMotion();
   return <BudgetProvider>
     <StatusBar style="dark" />
     {Platform.OS === 'android' && <SystemNavigationBar hidden style="dark" />}
-    <Tabs tabBar={() => <Navigation />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.paper }, headerTintColor: colors.navy, headerStyle: { backgroundColor: colors.paper }, headerShadowVisible: false, headerTitleStyle: { color: colors.ink, fontWeight: '600', fontSize: 17 } }}>
+    <View style={{ flex: 1 }}>
+    <Tabs tabBar={() => <Navigation />} screenOptions={{ animation: reduced ? 'none' : 'shift', transitionSpec: { animation: 'timing', config: { duration: 260, easing: Easing.bezier(0.23, 1, 0.32, 1) } }, sceneStyleInterpolator: ({ current }) => ({ sceneStyle: { transform: [{ translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: reduced ? [0, 0, 0] : [-width, 0, width] }) }] } }), headerShown: false, sceneStyle: { backgroundColor: colors.paper }, headerTintColor: colors.navy, headerStyle: { backgroundColor: colors.paper }, headerShadowVisible: false, headerTitleStyle: { color: colors.ink, fontWeight: '600', fontSize: 17 } }}>
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
       <Tabs.Screen name="goals" options={{ title: 'Goals' }} />
       <Tabs.Screen name="budget" options={{ title: 'Budget' }} />
@@ -51,5 +54,6 @@ export default function Layout() {
         </PressScale>,
       }} />)}
     </Tabs>
+    </View>
   </BudgetProvider>;
 }

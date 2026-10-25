@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
-import { Icon, Screen, SectionTitle } from '../components/design';
+import { Icon, Progress, Screen, SectionTitle } from '../components/design';
 import { AmountRow, colors, Group, GroupRow, Money, NavyFace, Notice, PressScale, styles } from '../components/ui';
 import { categoriesWithSpend, displayMoney, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
@@ -57,6 +57,7 @@ export default function BudgetScreen() {
             <AmountRow label={category.spent > category.limit ? 'Over' : 'Spent'} color={category.spent > category.limit ? colors.red : colors.muted}>
               <Money size={15} color={category.spent > category.limit ? colors.red : colors.muted}>{displayMoney(category.spent, settings.hideBalances)}</Money>
             </AmountRow>
+            <Progress value={category.limit > 0 ? category.spent / category.limit : category.spent > 0 ? 1 : 0} label={`${category.name} budget used`} fill={category.spent > category.limit ? colors.red : colors.blue} />
           </GroupRow>)}
         </Group>
       </View>
