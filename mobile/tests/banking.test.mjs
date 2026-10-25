@@ -76,3 +76,15 @@ test('known Flow purchases absent from the sandbox balance are reserved once whe
   assert.equal(result.canApprove, true);
   assert.equal(proposeBudget({ ...bank, unreflectedPurchaseCents: -1 }, goal, prefs, now).canApprove, false);
 });
+test('rehearsal purchases stay in imported history but stop informing category pacing', () => {
+  const marked = { ...bank, voidedPurchaseIds: ['p0'] };
+  const history = analyzeHistory(marked, now);
+  assert.equal(history.count, 8);
+  assert.equal(history.totalCents, 8000);
+  // Dining history drops from $50 to $40, so its allocation drops with it.
+  const before = proposeBudget(bank, goal, prefs, now).allocations.find(c => c.id === 'dining').limit;
+  const after = proposeBudget(marked, goal, prefs, now).allocations.find(c => c.id === 'dining').limit;
+  assert.ok(after < before, 'a voided purchase must not keep inflating the dining pace');
+  // The record itself is untouched; only the pacing calculation ignores it.
+  assert.equal(marked.purchases.length, bank.purchases.length);
+});

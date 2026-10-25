@@ -45,8 +45,11 @@ reload/rebuild; browser previews cannot verify the system bar.
 - **Tools → Banking:** balances, imported history analysis, weekday spending,
   income patterns, bills, habit preferences, and budget-proposal review/approval.
 - **Tools → Test a purchase:** simulated merchant location, median historical
-  spending estimate when available, estimated/actual cutout, and explicit local
-  purchase confirmation. Confirmed spending updates the local budget once.
+  spending estimate when available, and estimated/actual cutout. With a bank
+  imported and a merchant chosen it defaults to **Send to Nessie**, which writes
+  a verified sandbox purchase and refreshes bank data; **Rehearsal only** keeps
+  the original device-local behavior. Without a bank or merchant it is rehearsal
+  only. Confirmed spending updates the budget once in either mode.
 - **Tools → Transaction history:** imported purchases/deposits and local confirmed
   purchases, with source filters and status labels.
 - **Tools → Nessie purchase:** confirmed whole-dollar sandbox writes, durable
@@ -225,13 +228,14 @@ not bills written to Nessie.
 
 1. **Check on Android:** run the latest UI on a real device; verify keyboard,
    system back navigation, small screens, and the complete import/demo flow.
-2. **Nessie transaction follow-up:** the separate Nessie purchase screen now writes
-   and verifies sandbox transactions. A live $1 purchase and replay were checked;
-   the physical Android HTTP flow still needs testing. Whole dollars are required
-   because this sandbox truncates cents. It also leaves its reported balance
-   unchanged; known Flow debits are reserved separately for planning. Preserve the
-   backend purchase journal and add a settlement-review workflow before treating
-   this as production accounting. Original checkout remains local simulation.
+2. **Nessie transaction follow-up:** checkout and the separate Nessie purchase
+   screen both write and verify sandbox transactions through `useNessiePurchase`.
+   A live $1 purchase and replay were checked; the physical Android HTTP flow
+   still needs testing, and reconciliation has not been exercised live. Whole
+   dollars are required because this sandbox truncates cents. It also leaves its
+   reported balance unchanged, so verified Flow debits reserve funds until
+   reviewed in Banking as settled or rehearsal. Preserve the backend purchase
+   journal; it is the only record of which debits the balance never reflected.
 3. **ESP32 firmware:** implement the documented Wi-Fi endpoint and display. Sending
    Dining manually is implemented; automatic updates, preview synchronization,
    device-button confirmation and presence detection are not. Verify Android LAN
@@ -277,8 +281,14 @@ display name and hide-balances, and Tools navigation. Home category cards are
 display-only; checkout is reached from Tools. ESP32 firmware and the redesigned
 UI on physical Android remain unverified.
 
-Transaction update: 18 mobile tests and 23 backend tests passed after merging
-the Settings/UI work from main.
+Transaction update: 19 mobile tests and 27 backend tests passed.
+
+Reviewing a reserve in Banking releases it: **settled** means the reported
+balance now accounts for the purchase and it keeps informing category pacing;
+**rehearsal** releases the reserve and reports the ID in `voidedPurchaseIds`
+so `analyzeHistory` ignores it. Neither deletes or alters the Nessie record.
+Rehearse with checkout's **Rehearsal only** mode to avoid creating reserves at
+all. Do not subtract other imported history again.
 Nessie stores the new $1 record once across replay. Bank imports now include an
 `unreflectedPurchaseCents` reserve from this laptop's ignored `.purchase-journal/`.
 The journal must accompany the local backend outside Git; do not delete it.

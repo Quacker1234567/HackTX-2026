@@ -13,9 +13,11 @@ checkout simulator and the main visual design are preserved for the UI teammate.
    demo checking**. Reuse the existing Firebase connection ID and allowlist.
 4. If using an approved plan, review it in Tools → Banking after a new import.
    Confirm the complete bill list if the sandbox bill reader is unavailable.
-5. Open **Tools → Nessie purchase**, choose **Campus Cafe**, and enter a whole-dollar
-   amount your category can cover (for example, $35 if at least $35 remains).
-6. Tap **Preview Nessie purchase**, inspect the amount/category remainder, then
+5. Open **Tools → Test a purchase**, choose **Campus Cafe**, leave the mode on
+   **Send to Nessie**, and enter a whole-dollar amount your category can cover
+   (for example, $35 if at least $35 remains). **Tools → Nessie purchase** is the
+   same flow without the preview visuals, kept for checking a saved request.
+6. Tap **Preview purchase**, inspect the cutout and category remainder, then
    **Confirm Nessie purchase**. Only this final button submits the sandbox write.
 7. A successful result verifies the stored transaction, refreshes bank data and
    reduces the local category once. Check Home and Tools → Transaction history.
@@ -40,9 +42,26 @@ an account-based plan when demonstrating allocation calculations.
 - The successful $1 receipt has a $1 unreflected-balance reserve in this laptop’s
   private purchase journal. The journal is not shared by Git.
 
-If a later reported balance changes while those reserves remain, planning blocks
-for journal review rather than guessing whether the debits settled. A future
-settlement/reconciliation workflow is separate work.
+If a later reported balance changes while those reserves remain, planning warns
+for journal review rather than guessing whether the debits settled.
+
+## Releasing a reserve
+
+**Tools → Banking** lists verified Flow purchases awaiting review under
+*Flow purchases awaiting review*. Each one offers two outcomes:
+
+- **Settled in balance** — the reported balance now accounts for it. The reserve
+  is released and the purchase keeps informing 90-day category pacing.
+- **Rehearsal — ignore** — practice data. The reserve is released and the ID is
+  returned in `voidedPurchaseIds`, so `analyzeHistory` stops counting it toward
+  category pacing.
+
+Neither outcome deletes or alters the Nessie record, and both re-check account
+ownership on the backend. Reviewing is idempotent and can be reclassified.
+Releasing a reserve changes available funds, so approve a fresh plan afterwards.
+
+The better habit is to avoid creating reserves you do not want: checkout's
+**Rehearsal only** mode never contacts Nessie.
 
 ## Recovery and limits
 

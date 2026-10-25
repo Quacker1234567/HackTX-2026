@@ -242,9 +242,11 @@ directory across restarts; it also tracks purchases absent from the reported bal
   labels it accordingly; budget approval stays blocked until bills are reviewed.
 - Checkout confirmation currently changes local demo state. It does not submit
   a new purchase to Nessie or process a real payment. Reach checkout from
-  **Tools → Test a purchase**, not from Home category cards. The separate
-  **Tools → Nessie purchase** screen creates verified sandbox transactions
-  using whole-dollar amounts.
+  **Tools → Test a purchase**, not from Home category cards. Once a bank is
+  imported and a merchant is chosen, checkout defaults to **Send to Nessie**
+  and creates a verified sandbox transaction using whole-dollar amounts;
+  switch to **Rehearsal only** to practice without writing anything. Review
+  resulting reserves in **Tools → Banking**.
 - Settings preferences persist only on this device. Hide balances replaces
   dollar amounts with dots; purchase alerts and goal reminders do not send
   notifications yet.

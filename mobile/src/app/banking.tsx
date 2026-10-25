@@ -4,6 +4,7 @@ import { useBudget } from '../state/BudgetProvider';
 import { Button, Field, styles } from '../components/ui';
 import { analyzeHistory, BankSnapshot, confirmManualBills, dayKey, Preferences, proposeBudget, validDate } from '../domain/banking';
 import { money, parseMoney } from '../domain/budget';
+import { reconcileNessieDebit } from '../services/banking';
 
 export default function Banking() {
   const { budget, approvePlan, importBank } = useBudget();
@@ -17,7 +18,18 @@ export default function Banking() {
   const [protect, setProtect] = useState('groceries');
   const [reviewing, setReviewing] = useState(false);
   const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
   const bank = budget.bank;
+  async function settle(purchaseId: string, disposition: 'settled' | 'void') {
+    if (busy || !bank) return;
+    setBusy(true);
+    try {
+      const refreshed = await reconcileNessieDebit({ accountId: bank.account.id, purchaseId, disposition });
+      importBank(refreshed);
+      setNotice(disposition === 'void' ? 'Marked as rehearsal. Its reserve is released and it no longer informs category pacing. The Nessie record is unchanged.' : 'Marked as settled. Its reserve is released. Review a new plan before approving allocations.');
+    } catch (error) { setNotice(error instanceof Error ? error.message : 'Reconciliation failed. The reserve is unchanged.'); }
+    finally { setBusy(false); }
+  }
   const preferences: Preferences = { payday, diningReduction: Number(reduction), protectedCategory: protect };
   const history = useMemo(() => bank ? analyzeHistory(bank) : null, [bank]);
   const proposal = bank ? proposeBudget(bank, budget.goal, preferences) : null;
@@ -27,6 +39,18 @@ export default function Banking() {
     <Text style={styles.title}>Your banking picture.</Text>
     <Text style={styles.notice}>Nessie mock data · Imported {new Date(bank.importedAt).toLocaleString()}</Text>
     {!!bank.unreflectedPurchaseCents && <Text style={styles.notice}>{money(bank.unreflectedPurchaseCents)} reserved for verified Flow purchases not reflected in Nessie’s reported balance. This reserve is deducted once when planning.</Text>}
+    {!!bank.flowDebits?.length && <View style={styles.panel}>
+      <Text style={styles.heading}>Flow purchases awaiting review</Text>
+      <Text style={styles.body}>These were written to Nessie and verified, but its reported balance did not change. Reviewing one releases its reserve. Nothing is deleted from Nessie either way.</Text>
+      {bank.flowDebits.map(debit => <View key={debit.purchaseId} style={{ gap: 8, borderTopWidth: 1, borderTopColor: '#E7EEF4', paddingTop: 12 }}>
+        <Text style={styles.body}>{money(debit.amountCents)}{debit.date ? ` · ${debit.date}` : ''}</Text>
+        <View style={styles.row}>
+          <Button disabled={busy} onPress={() => void settle(debit.purchaseId, 'settled')}>Settled in balance</Button>
+          <Button secondary disabled={busy} onPress={() => void settle(debit.purchaseId, 'void')}>Rehearsal — ignore</Button>
+        </View>
+      </View>)}
+      <Text style={{ color: '#6B7F8D', fontSize: 12, lineHeight: 19 }}>Settled: the reported balance now accounts for it, and it keeps informing category pacing. Rehearsal: it stays in Nessie history but stops affecting your budget.</Text>
+    </View>}
     {bank.warnings.map(warning => <Text key={warning} accessibilityRole="alert" style={styles.notice}>{warning}</Text>)}
     <View style={styles.panel}><Text style={styles.heading}>{bank.account.name}</Text><Text style={styles.title}>{money(bank.account.balanceCents)}</Text><Text style={styles.body}>{bank.account.type} balance reported by Nessie. History is already reflected in this balance.</Text></View>
     <Text style={styles.heading}>Spending patterns · Last 90 days</Text>
