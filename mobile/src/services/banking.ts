@@ -14,6 +14,13 @@ export type NessiePurchaseRequest = { requestId: string; accountId: string; merc
 export type NessiePurchaseResult =
   | { state: 'created'; requestId: string; purchaseId: string; accountId: string; merchantId: string; amountCents: number; date: string; snapshot: BankSnapshot | null }
   | { state: 'uncertain' | 'rejected' | 'mismatch'; requestId: string; message: string };
+export type ReconcileRequest = { accountId: string; purchaseId: string; disposition: 'settled' | 'void' };
+// Clears a reserve after review. Nothing upstream is deleted or changed.
+export async function reconcileNessieDebit(request: ReconcileRequest) {
+  if (!process.env.EXPO_PUBLIC_NESSIE_BACKEND_URL?.trim()) throw new Error('Set the local backend HTTPS URL. Reconciliation runs on the backend that owns the purchase journal.');
+  await ensureFirebaseUser();
+  return (await httpsCallable<ReconcileRequest, BankSnapshot>(firebaseFunctions(), 'nessieReconcile', { timeout: 120000 })(request)).data;
+}
 export async function createNessiePurchase(request: NessiePurchaseRequest) {
   if (!process.env.EXPO_PUBLIC_NESSIE_BACKEND_URL?.trim()) throw new Error('Set the local backend HTTPS URL. Purchase writes are not deployed to Firebase Functions.');
   const user = await ensureFirebaseUser();

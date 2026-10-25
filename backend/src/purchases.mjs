@@ -1,5 +1,5 @@
 import { cents, loadSnapshot, validId } from './nessie.mjs';
-import { purchaseKey, withPurchaseReserves } from './purchase-journal.mjs';
+import { DISPOSITIONS, purchaseKey, withPurchaseReserves } from './purchase-journal.mjs';
 
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
 const uncertain = requestId => ({ state: 'uncertain', requestId, message: 'Nessie has not confirmed this purchase. Check again using the same request; do not start a replacement purchase.' });
@@ -102,6 +102,42 @@ export function createPurchaseHandler({ authorize, client, customerId, journal, 
       fresh = await withPurchaseReserves(fresh, journal);
     }
     return { state: 'created', requestId, purchaseId: entry.purchaseId, accountId, merchantId, amountCents, date: entry.date, snapshot: fresh };
+  }
+  return request => {
+    const result = queue.then(() => perform(request));
+    queue = result.catch(() => {});
+    return result;
+  };
+}
+
+// Clears a reserve after review. This never deletes or alters the upstream record:
+// 'settled' means the reported balance now accounts for it, 'void' marks rehearsal
+// data that should also stop informing category pacing.
+export function createReconcileHandler({ authorize, client, customerId, journal, snapshot = loadSnapshot, now = () => new Date() }) {
+  let queue = Promise.resolve();
+  async function perform(request) {
+    authorize(request);
+    const { purchaseId, accountId, disposition } = request.data ?? {};
+    if (!validId(purchaseId) || !validId(accountId) || !DISPOSITIONS.includes(disposition)) fail('invalid-argument', 'Choose a verified Flow purchase and mark it settled or void.');
+    const customer = customerId();
+    if (!validId(customer)) fail('failed-precondition', 'Configure the Nessie sample customer first.');
+    let accounts;
+    try { accounts = await client(`/customers/${customer}/accounts`); }
+    catch { fail('unavailable', 'Nessie account verification failed. Nothing was reconciled.'); }
+    if (!Array.isArray(accounts) || !accounts.some(a => a._id === accountId)) fail('permission-denied', 'Select an account owned by the configured sample customer.');
+    let entries;
+    try { entries = await journal.entries(); }
+    catch { fail('unavailable', 'Purchase journal is unavailable. Nothing was reconciled.'); }
+    const entry = entries.find(e => e.purchaseId === purchaseId && e.accountId === accountId && e.state === 'created' && e.verified);
+    if (!entry) fail('failed-precondition', 'No verified Flow purchase on this account matches that ID.');
+    if (!entry.reconciledAt || entry.disposition !== disposition) {
+      try { await journal.save(entry.key, { ...entry, reconciledAt: entry.reconciledAt ?? now().toISOString(), disposition }); }
+      catch { fail('unavailable', 'The reconciliation could not be saved. Check the journal and try again.'); }
+    }
+    let fresh;
+    try { fresh = await snapshot(client, customer, accountId); }
+    catch { fail('unavailable', 'Reconciled, but refreshed bank data could not be loaded. Import the account again in Connections.'); }
+    return withPurchaseReserves(fresh, journal);
   }
   return request => {
     const result = queue.then(() => perform(request));

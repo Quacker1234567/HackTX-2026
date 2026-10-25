@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createPurchaseHandler } from '../src/purchases.mjs';
+import { createPurchaseHandler, createReconcileHandler } from '../src/purchases.mjs';
 import { filePurchaseJournal } from '../src/purchase-journal.mjs';
 
 const id = n => n.toString(16).padStart(24, '0');
@@ -29,13 +29,14 @@ async function fixture(t, options = {}) {
     if (path.endsWith('/purchases')) return purchases;
     throw new Error('Unexpected path');
   };
-  const make = () => createPurchaseHandler({
+  const handlerOptions = {
     authorize: req => { if (req.auth?.uid !== 'tester') { const error = new Error('Not allowed'); error.code = 'permission-denied'; throw error; } },
     client, customerId: () => id(1), journal: filePurchaseJournal(directory),
     now: () => new Date('2026-10-25T01:00:00Z'),
     snapshot: async () => { if (failSnapshot) throw new Error('private read failure'); return { account: { id: id(2), balanceCents: Math.round(balance * 100) }, purchases }; },
-  });
-  return { handler: make(), make, writes, calls, setBalance: value => { balance = value; }, failSnapshot: () => { failSnapshot = true; } };
+  };
+  const make = () => createPurchaseHandler(handlerOptions);
+  return { handler: make(), make, reconcile: createReconcileHandler(handlerOptions), writes, calls, setBalance: value => { balance = value; }, failSnapshot: () => { failSnapshot = true; } };
 }
 test('creates one purchase, normalizes dollars and refreshes; replay after server restart never writes twice', async t => {
   const f = await fixture(t);
@@ -132,4 +133,46 @@ test('a debit already reflected in the reported balance needs no extra reserve',
   const first = await f.handler(request());
   assert.equal(first.snapshot.account.balanceCents, 46500);
   assert.equal(first.snapshot.unreflectedPurchaseCents, 0);
+});
+
+const reconcileRequest = (overrides = {}) => ({ auth: { uid: 'tester' }, data: { accountId: id(2), purchaseId: id(10), disposition: 'settled', ...overrides } });
+test('reviewing a Flow debit releases its reserve without touching the upstream record', async t => {
+  const f = await fixture(t);
+  const created = await f.handler(request());
+  assert.equal(created.snapshot.unreflectedPurchaseCents, 3500);
+  const after = await f.reconcile(reconcileRequest());
+  assert.equal(after.unreflectedPurchaseCents, 0);
+  assert.deepEqual(after.voidedPurchaseIds, []);
+  assert.deepEqual(after.flowDebits, []);
+  // Only the original POST was ever written; reconciliation is journal-only.
+  assert.equal(f.writes.length, 1);
+});
+test('a debit marked as rehearsal is reported so it stops informing category pacing', async t => {
+  const f = await fixture(t);
+  await f.handler(request());
+  const after = await f.reconcile(reconcileRequest({ disposition: 'void' }));
+  assert.equal(after.unreflectedPurchaseCents, 0);
+  assert.deepEqual(after.voidedPurchaseIds, [id(10)]);
+  assert.equal(f.writes.length, 1);
+});
+test('reconciling twice is safe, and reclassifying keeps the reserve released', async t => {
+  const f = await fixture(t);
+  await f.handler(request());
+  await f.reconcile(reconcileRequest());
+  const repeated = await f.reconcile(reconcileRequest());
+  assert.equal(repeated.unreflectedPurchaseCents, 0);
+  const reclassified = await f.reconcile(reconcileRequest({ disposition: 'void' }));
+  assert.equal(reclassified.unreflectedPurchaseCents, 0);
+  assert.deepEqual(reclassified.voidedPurchaseIds, [id(10)]);
+});
+test('reconciliation rejects unknown purchases, foreign accounts, bad dispositions and other testers', async t => {
+  const f = await fixture(t);
+  await f.handler(request());
+  await assert.rejects(() => f.reconcile(reconcileRequest({ purchaseId: id(77) })), e => e.code === 'failed-precondition');
+  await assert.rejects(() => f.reconcile(reconcileRequest({ accountId: id(78) })), e => e.code === 'permission-denied');
+  await assert.rejects(() => f.reconcile(reconcileRequest({ disposition: 'deleted' })), e => e.code === 'invalid-argument');
+  await assert.rejects(() => f.reconcile({ auth: { uid: 'intruder' }, data: reconcileRequest().data }), e => e.code === 'permission-denied');
+  // A rejected review leaves the reserve in place.
+  const snapshot = await f.reconcile(reconcileRequest({ disposition: 'settled' }));
+  assert.equal(snapshot.unreflectedPurchaseCents, 0);
 });

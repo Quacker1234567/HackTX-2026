@@ -10,6 +10,10 @@ export type BankSnapshot = {
   billSource?: 'nessie' | 'manual';
   billReviewRequired?: boolean;
   unreflectedPurchaseCents?: number;
+  // Flow purchases reviewed as rehearsal data: kept in Nessie, excluded from pacing.
+  voidedPurchaseIds?: string[];
+  // Verified Flow purchases still awaiting review, for the reconciliation list.
+  flowDebits?: { purchaseId: string; amountCents: number; date: string | null }[];
 };
 export type Preferences = { payday: string; diningReduction: number; protectedCategory: string };
 export type BudgetProposal = {
@@ -35,7 +39,9 @@ export function analyzeHistory(bank: BankSnapshot, now = new Date()) {
   const today = dayKey(now);
   const start = new Date(`${today}T12:00:00`); start.setDate(start.getDate() - 89);
   const from = dayKey(start);
-  const settled = unique(bank.purchases).filter(p => p.status === 'completed' && p.date && p.date >= from && p.date <= today && p.cents >= 0);
+  // Rehearsal purchases stay visible in history but must not teach category pacing.
+  const voided = new Set(bank.voidedPurchaseIds ?? []);
+  const settled = unique(bank.purchases).filter(p => p.status === 'completed' && p.date && p.date >= from && p.date <= today && p.cents >= 0 && !voided.has(p.id));
   const byCategory = Object.keys(categoryNames).map(id => ({ id, cents: total(settled.filter(p => p.categoryId === id)) }));
   const weekdays = Array.from({ length: 7 }, () => ({ cents: 0, days: 0 }));
   for (let i = 0; i < 90; i++) { const d = new Date(start); d.setDate(d.getDate() + i); weekdays[d.getDay()].days++; }
