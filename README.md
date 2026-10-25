@@ -211,11 +211,17 @@ URL if changed, then choose Option A or Option B.
 
 ## Current demo limits
 
+**New on mike-branch:** [Nessie transaction demo](docs/transaction-demo.md) explains
+Tools → Nessie purchase, confirmed sandbox writes, retries, and bank refresh.
+Restart the backend to load this endpoint. Keep its ignored `.purchase-journal/`
+directory across restarts; it also tracks purchases absent from the reported balance.
+
 - Purchases and deposits import from Nessie. The current bill-read endpoint has
   a schema error. Banking offers an explicitly confirmed manual bill list and
   labels it accordingly; budget approval stays blocked until bills are reviewed.
 - Checkout confirmation currently changes local demo state. It does not submit
-  a new purchase to Nessie or process a real payment.
+  a new purchase to Nessie or process a real payment. The separate **Nessie purchase**
+  screen creates verified sandbox transactions using whole-dollar amounts.
 - ESP32 integration is a separate manual Wi-Fi adapter; see [its contract](docs/esp32.md).
 
 For a demo with no laptop terminals, the backend needs a permanent hosted address.

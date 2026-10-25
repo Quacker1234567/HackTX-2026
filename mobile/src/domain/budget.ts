@@ -1,6 +1,6 @@
 import type { BankSnapshot, BudgetProposal } from './banking';
 export type Category = { id: string; name: string; limit: number; spent: number };
-export type Transaction = { id: string; categoryId: string; merchant: string; cents: number; createdAt: string };
+export type Transaction = { id: string; categoryId: string; merchant: string; cents: number; createdAt: string; nessiePurchaseId?: string; accountId?: string };
 export type Budget = { version: 1; categories: Category[]; transactions: Transaction[]; goal: { name: string; target: number; saved: number; days: number }; bank?: BankSnapshot; plan?: BudgetProposal };
 
 export const seedBudget = (): Budget => ({
@@ -37,4 +37,18 @@ export function editLimits(state: Budget, limits: Record<string, number>): Budge
   if (!Number.isSafeInteger(total)) throw new Error('Enter smaller budget amounts.');
   if (state.plan && total > state.plan.availableCents) throw new Error('These allocations exceed the funds available after bills and savings.');
   return { ...state, categories };
+}
+export function reconcileNessiePurchase(state: Budget, transaction: Transaction, snapshot: BankSnapshot | null): Budget {
+  if (!transaction.nessiePurchaseId || !Number.isSafeInteger(transaction.cents) || transaction.cents <= 0 || !transaction.accountId || state.bank?.account.id !== transaction.accountId) throw new Error('Reconnect the original Nessie account before applying this receipt.');
+  if (snapshot && snapshot.account.id !== transaction.accountId) throw new Error('The refreshed account does not match the purchase.');
+  if (state.transactions.some(t => t.nessiePurchaseId === transaction.nessiePurchaseId)) return state;
+  const category = state.categories.find(c => c.id === transaction.categoryId);
+  if (!category) throw new Error('The original budget category is unavailable. Keep this receipt for review.');
+  // A plan approved from a snapshot already containing this expense has reserved it already.
+  const alreadyInPlan = state.plan?.snapshotAt === state.bank?.importedAt && state.bank?.purchases.some(p => p.id === transaction.nessiePurchaseId);
+  return {
+    ...state, bank: snapshot ?? state.bank,
+    categories: alreadyInPlan ? state.categories : state.categories.map(c => c.id === category.id ? { ...c, spent: c.spent + transaction.cents } : c),
+    transactions: [transaction, ...state.transactions],
+  };
 }

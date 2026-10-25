@@ -39,6 +39,9 @@ reload/rebuild; browser previews cannot verify the system bar.
   purchase confirmation. Confirmed spending updates the local budget once.
 - **Tools → Transaction history:** imported purchases/deposits and local confirmed
   purchases, with source filters and status labels.
+- **Tools → Nessie purchase (mike-branch):** confirmed whole-dollar sandbox writes,
+  durable request/receipt recovery, verified stored amounts, bank refresh and
+  once-only category updates. See [transaction-demo.md](docs/transaction-demo.md).
 - Budget state is saved on the device with AsyncStorage. Imported history remains
   available after the backend stops. Firestore saving is manual; there is no
   automatic cloud restore or cross-device synchronization flow yet.
@@ -183,7 +186,12 @@ backend boundary. Do not subtract imported history from the current bank balance
 again or add historical deposits to it again.
 
 Budget proposals reserve upcoming bills and savings once, then allocate the
-remainder. Completed spending in a 90-day window informs category pacing. The
+remainder. Completed spending in a 90-day window informs category pacing.
+That historical pace is a **ceiling, not a target**: categories are never scaled
+above it, so funds beyond it are reported as `unallocatedCents` instead of
+collecting in Other. Scaling down is unchanged and still distributes everything.
+Unallocated funds stay spendable by raising a limit in Budget, which remains
+capped at the plan's `availableCents`. The
 protected category and dining-reduction preference affect allocations. Users
 explicitly approve proposals; imports do not silently replace approved budgets.
 A new imported snapshot or elapsed payday makes checkout require plan review.
@@ -199,10 +207,13 @@ not bills written to Nessie.
 
 1. **Check on Android:** run the latest UI on a real device; verify keyboard,
    system back navigation, small screens, and the complete import/demo flow.
-2. **Nessie transaction writes:** checkout currently updates local state only.
-   Implement an authenticated backend purchase endpoint, explicit confirmation,
-   account/merchant validation, duplicate-write protection and reconciliation
-   before labeling checkout as a Nessie transaction. Test against the sandbox.
+2. **Nessie transaction follow-up:** the separate Nessie purchase screen now writes
+   and verifies sandbox transactions. A live $1 purchase and replay were checked;
+   the physical Android HTTP flow still needs testing. Whole dollars are required
+   because this sandbox truncates cents. It also leaves its reported balance
+   unchanged; known Flow debits are reserved separately for planning. Preserve the
+   backend purchase journal and add a settlement-review workflow before treating
+   this as production accounting. Original checkout remains local simulation.
 3. **ESP32 firmware:** implement the documented Wi-Fi endpoint and display. Sending
    Dining manually is implemented; automatic updates, preview synchronization,
    device-button confirmation and presence detection are not. Verify Android LAN
@@ -243,6 +254,14 @@ At handoff: 11 mobile tests and 8 backend tests passed; mobile lint/type checkin
 and Android export passed. Core preview flows checked: goal save, valid/invalid
 allocation save, purchase preview/confirmation, history, and Tools navigation.
 ESP32 firmware and the redesigned UI on physical Android remain unverified.
+
+Transaction update on mike-branch: 16 mobile tests and 23 backend tests passed.
+Nessie stores the new $1 record once across replay. Bank imports now include an
+`unreflectedPurchaseCents` reserve from this laptop's ignored `.purchase-journal/`.
+The journal must accompany the local backend outside Git; do not delete it.
+Available category funds = reported balance minus that reserve, bills and savings.
+Do not subtract other imported history again. A changed balance with unresolved
+Flow debits requires review. See the transaction demo document for details.
 
 For an installed Android APK, follow README’s EAS preview instructions. Configure
 all public client environment values in EAS; ignored local .env files are not a
