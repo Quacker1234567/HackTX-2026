@@ -1,4 +1,4 @@
-# Nessie transaction demo — mike-branch
+# Nessie transaction demo
 
 This adds backend behavior and a separate Tools screen. The original local
 checkout simulator and the main visual design are preserved for the UI teammate.
