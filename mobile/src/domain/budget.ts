@@ -104,9 +104,36 @@ export function reconcileNessiePurchase(state: Budget, transaction: Transaction,
   if (!category) throw new Error('The original budget category is unavailable. Keep this receipt for review.');
   // A plan approved from a snapshot already containing this expense has reserved it already.
   const alreadyInPlan = state.plan?.snapshotAt === state.bank?.importedAt && state.bank?.purchases.some(p => p.id === transaction.nessiePurchaseId);
-  return {
+  const next: Budget = {
     ...state, bank: snapshot ?? state.bank,
     categories: alreadyInPlan ? state.categories : state.categories.map(c => c.id === category.id ? { ...c, spent: c.spent + transaction.cents } : c),
     transactions: [transaction, ...state.transactions],
   };
+  // A receipt without a matching refresh cannot authorize another purchase.
+  if (state.plan && !alreadyInPlan) next.plan = { ...state.plan, snapshotAt: '' };
+  // Keep the approved monthly limits through our own verified purchase. A plain
+  // bank import still requires review; this exception is limited to a matched
+  // receipt, the exact expected debit, and otherwise unchanged planning data.
+  const previous = state.bank!;
+  const plan = state.plan;
+  if (snapshot && plan?.canApprove && plan.accountId === previous.account.id && plan.snapshotAt === previous.importedAt && !snapshot.warnings.length && !snapshot.billReviewRequired) {
+    const purchase = snapshot.purchases.find(p => p.id === transaction.nessiePurchaseId);
+    const rows = (items: { id: string }[]) => JSON.stringify([...items].sort((a, b) => a.id.localeCompare(b.id)));
+    const withoutReceipt = (bank: BankSnapshot) => bank.purchases.filter(p => p.id !== transaction.nessiePurchaseId);
+    const savings = (bank: BankSnapshot) => (bank.accounts ?? []).filter(a => a.type === 'Savings').map(a => ({ id: a.id, balanceCents: a.balanceCents }));
+    const oldFunds = previous.account.balanceCents - (previous.unreflectedPurchaseCents ?? 0);
+    const newFunds = snapshot.account.balanceCents - (snapshot.unreflectedPurchaseCents ?? 0);
+    const expectedDebit = previous.purchases.some(p => p.id === transaction.nessiePurchaseId) ? 0 : transaction.cents;
+    const currentSpent = monthSpentByCategory(next);
+    const remaining = next.categories.reduce((sum, c) => sum + Math.max(0, c.limit - (currentSpent[c.id] ?? 0)), 0);
+    const covered = newFunds >= remaining + (plan.billsCents ?? 0) + (plan.savingsCents ?? 0);
+    const receiptMatches = purchase?.status === 'completed' && purchase.cents === transaction.cents && purchase.categoryId === transaction.categoryId;
+    const historyUnchanged = rows(withoutReceipt(previous)) === rows(withoutReceipt(snapshot)) && rows(previous.deposits) === rows(snapshot.deposits);
+    const reservesUnchanged = rows(previous.bills) === rows(snapshot.bills) && rows(savings(previous)) === rows(savings(snapshot));
+    const voidsUnchanged = rows((previous.voidedPurchaseIds ?? []).map(id => ({ id }))) === rows((snapshot.voidedPurchaseIds ?? []).map(id => ({ id })));
+    if (receiptMatches && covered && Number.isSafeInteger(newFunds) && newFunds === oldFunds - expectedDebit && historyUnchanged && reservesUnchanged && voidsUnchanged) {
+      next.plan = { ...plan, snapshotAt: snapshot.importedAt };
+    }
+  }
+  return next;
 }

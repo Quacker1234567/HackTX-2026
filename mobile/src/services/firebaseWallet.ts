@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { get, getDatabase, onChildAdded, onValue, orderByChild, query, ref, runTransaction, startAt } from 'firebase/database';
 import type { Budget, Transaction } from '../domain/budget';
-import { firebaseWalletBudget, walletPlanReady, type WalletEvent } from '../domain/hardware';
+import { WalletBudgetExceededError, firebaseWalletBudget, walletPlanReady, walletReply, type WalletEvent, type WalletReply } from '../domain/hardware';
 import { walletEventProcessor, type WalletJournal } from '../domain/wallet-events';
 import { createNessiePurchase, type NessiePurchaseResult } from './banking';
 import { ensureFirebaseUser, firebaseApp } from './firebase';
@@ -35,19 +35,24 @@ export async function connectFirebaseWallet(options: Options) {
   let stopped = false;
   let lastPublished = '';
   let writes: Promise<void> = Promise.resolve();
+  let purchasesPending = () => false;
+  let lastReply: WalletReply | undefined;
   const report = (error: unknown) => options.onMessage(error instanceof Error ? error.message : 'Wallet connection failed.');
-  function sync(force = false) {
+  function sync(force = false, reply?: WalletReply) {
     const next = writes.catch(() => {}).then(async () => {
       if (stopped) return;
       const state = options.getBudget();
       const budget = firebaseWalletBudget(state);
+      if (purchasesPending()) budget.cards = [];
+      if (reply) lastReply = reply;
       if (!budget.categories.length) throw new Error('Apply a funded budget before sending it to the wallet.');
       const display = { line1: 'Flow', line2: walletPlanReady(state) ? state.plan!.periodLabel.slice(0, 32) : 'Review budget in app' };
-      const fingerprint = JSON.stringify({ budget, display });
+      const fingerprint = JSON.stringify({ budget, display, transaction: lastReply ?? null });
       if (!force && fingerprint === lastPublished) return;
       const commandId = `flow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       await runTransaction(ref(db, `wallets/${walletDeviceId}/control/desired`), previous => ({
         type: 'device_update', command_id: commandId, issued_at: Date.now(), display, budget,
+        ...(lastReply ? { transaction: lastReply } : {}),
         ...(previous?.reader ? { reader: previous.reader } : {}),
       }), { applyLocally: false });
       lastPublished = fingerprint;
@@ -65,17 +70,21 @@ export async function connectFirebaseWallet(options: Options) {
     save: entries => AsyncStorage.setItem(journalKey, JSON.stringify(entries)),
     purchase: createNessiePurchase, apply: options.apply,
     manualPurchasePending: async () => !!await AsyncStorage.getItem('flow.nessie.purchase.v1'),
-    publish: () => sync(true),
+    publish: reply => sync(false, reply),
   });
+  purchasesPending = processor.hasPending;
   // Publish first: a failed rule/ownership check cannot leave a purchase listener active.
   await sync(true);
   const stopStatus = onValue(ref(db, `wallets/${walletDeviceId}/status`), value => options.onStatus(value.val()), report);
   const stopEvents = onChildAdded(query(ref(db, `wallets/${walletDeviceId}/events`), orderByChild('created_at'), startAt(since)), value => {
     if (stopped || value.val()?.type !== 'purchase_confirm') return;
     const event = { ...value.val(), id: value.key } as WalletEvent;
+    options.onMessage('Checking wallet purchase with Nessie…');
     void processor.handle(event).then(() => options.onMessage('Wallet purchase verified.')).catch(async error => {
       report(error);
-      try { await sync(true); } catch (syncError) { report(syncError); }
+      let reply = processor.replyFor(event.id);
+      try { reply ??= walletReply(event.id, 'sad', error instanceof WalletBudgetExceededError ? 'Over budget' : 'Check purchase in Flow'); } catch { /* malformed event IDs cannot be answered */ }
+      try { await sync(true, reply); } catch (syncError) { report(syncError); }
     });
   }, report);
   // Recover a receipt/request even when its event is older than the live query.

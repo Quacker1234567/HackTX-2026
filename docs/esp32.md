@@ -1,10 +1,14 @@
+# Legacy contract: direct LAN adapter
+
+The active hardware demo uses [the Firebase wallet bridge](firebase-wallet.md). The HTTP contract below is retained as a reference; Connections now uses Firebase rather than POST /budget.
+
 # ESP32 Wi-Fi contract, v1
 
 The app is the source of truth. Firmware is not implemented yet. No GPIO,
 screen driver, or voltage assumptions are made by this starter.
 
 Implement `POST /budget` on the ESP32 and return HTTP 200 only after accepting
-the JSON payload. The Connections screen currently sends Dining manually.
+the JSON payload. The former adapter sent Dining manually.
 
 ```json
 {
