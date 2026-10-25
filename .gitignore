@@ -12,3 +12,4 @@ firebase-debug.log
 .claude/
 .purchase-journal/
 .student-demo/
+**/secrets.h

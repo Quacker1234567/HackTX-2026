@@ -9,6 +9,7 @@ import { BankAccount } from '../domain/banking';
 import { money } from '../domain/budget';
 import { useHardwareWallet } from '../state/HardwareWalletProvider';
 import { walletDatabaseUrl, walletDeviceId } from '../services/firebaseWallet';
+import { firebaseWalletBudget, walletPlanReady, WALLET_CARD } from '../domain/hardware';
 
 export default function Connections() {
   const { budget, ready, importBank } = useBudget();
@@ -22,6 +23,7 @@ export default function Connections() {
     return () => clearInterval(timer);
   }, [wallet.connected]);
   const deviceOnline = !!wallet.status?.last_seen && clock - wallet.status.last_seen < 45000 && clock - wallet.status.last_seen >= -5000;
+  const cardReady = firebaseWalletBudget(budget).cards.length > 0;
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   async function run(action: () => Promise<string>) {
@@ -60,7 +62,8 @@ export default function Connections() {
         <GroupRow>
           <Text style={styles.heading}>{walletDeviceId}</Text>
           <Text style={styles.body}>{wallet.connected ? deviceOnline ? 'Device online' : 'Connected to Firebase · waiting for device' : 'Disconnected'}</Text>
-          <Text style={styles.body}>04A1B2C3 · Dining · $12</Text>
+          <Text style={styles.body}>{WALLET_CARD.uid} · Dining · {money(WALLET_CARD.amount_cents)}</Text>
+          {wallet.connected && !cardReady && <Text style={styles.body}>{walletPlanReady(budget) ? 'NFC paused: Dining has less than $12 left.' : 'NFC paused: apply your budget in Insights.'}</Text>}
         </GroupRow>
         <GroupRow>
           {wallet.connected ? <Button secondary disabled={wallet.busy} onPress={wallet.disconnect}>Disconnect wallet</Button> : <Button disabled={!ready || wallet.busy || !walletDatabaseUrl} onPress={() => void wallet.connect()}>{wallet.busy ? 'Connecting…' : 'Connect wallet'}</Button>}

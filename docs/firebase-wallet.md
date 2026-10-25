@@ -32,20 +32,20 @@ Ownership was relinked to Flow’s existing allowed Firebase UID on October 25, 
 
 | NFC UID | Flow category | Nessie merchant | Amount |
 | --- | --- | --- | --- |
-| 04A1B2C3 | dining | Campus Cafe Restaurant | $12 / 1200 cents |
+| 44339A9E | dining | Campus Cafe Restaurant | $12 / 1200 cents |
 
 The incoming `food` / $12.50 example has been adapted to the app's Dining category and supported whole-dollar amount with user approval. Actual device previews must show Dining and $12 before confirmation. Flow publishes this table to the device; do not retain the old table. The adapter rejects a confirmation with the old `food` category or 1250-cent price.
 
-All four funded categories use the actual approved limits and this calendar month's spending, not the seed's stored spent values. Negative remaining amounts are preserved; zero-limit categories are omitted because firmware requires positive totals. Cards are omitted while the selected checking account lacks a current approved plan, has import warnings, or cannot cover the price.
+All four funded categories use the actual approved limits and this calendar month's spending, not the seed's stored spent values. Negative remaining amounts are preserved; zero-limit categories are omitted because firmware requires positive totals. Cards are omitted while the selected checking account lacks a current approved plan or has import warnings. A mapped card remains recognizable when its category cannot cover the price. On confirmation, Flow checks the latest remaining cents and sends a matching sad / Over budget reply without calling Nessie or deducting anything. Spending exactly the remaining amount is allowed. Existing happy/sad firmware supports this without reflashing; reconnect the wallet or send the budget after reloading Flow.
 
 ## Run the demo
 
 1. Keep the existing local Nessie backend and Cloudflare tunnel running. Import Flow Student Checking and apply the budget in Insights.
 2. Restart Expo after updating environment settings. Open **Tools → Connections → Firebase wallet → Connect wallet**.
 3. Power the ESP32 and connect it to Wi-Fi. The screen and card table receive the current budget. “Connected to Firebase” is separate from a recent ESP32 heartbeat; check **Device online**.
-4. Tap card 04A1B2C3 and verify Dining / $12 in the preview. Hold the hardware button to confirm.
-5. Flow must remain open/connected to receive the event and call Nessie. After backend verification, it adds the receipt once and replaces the wallet budget with the authoritative app values. The firmware's local optimistic deduction is never subtracted again.
-6. If a refreshed bank snapshot makes the plan stale, review/apply again in Insights before the next purchase. New cards are withheld until review. Use **Retry saved wallet purchase** for an uncertain request; do not clear app storage or the backend purchase journal.
+4. Tap card 44339A9E and verify Dining / $12 in the preview. Hold the hardware button to confirm.
+5. Flow must remain open/connected to receive the event and call Nessie. After backend verification, it adds the receipt once and replaces the wallet budget with the authoritative app values. The updated firmware does not deduct locally. Flow returns the refreshed budget and a matching transaction verdict.
+6. A matching refreshed snapshot from the verified purchase advances the approved plan bank reference while preserving monthly limits. The app checks the exact expected debit, unchanged bills/deposits/savings/history and coverage of remaining category funds. Unrelated changes or a failed refresh still require review in Insights; new cards are withheld until review. Use **Retry saved wallet purchase** for an uncertain request; do not clear app storage or the backend purchase journal.
 
 Connecting is explicit each app session. The listener persists across Flow tabs. Disconnecting removes listeners; it does not delete the device or transaction history. The last display may remain on the ESP32 while the app is closed. Hardware confirmation is not proof that Nessie accepted the purchase; the app's verified receipt is the authoritative result.
 
@@ -53,8 +53,24 @@ Connecting is explicit each app session. The listener persists across Flow tabs.
 
 The bridge checks ownership before publishing or listening. It listens from a persisted activation checkpoint, rather than a five-minute window that would lose confirmations while the app is closed. Requests and receipts are saved locally before posting/applying. A hardware event produces the same request ID across restarts (`hw_<device>_<boot>_<sequence>`); the existing backend journal prevents another Nessie POST for the same request. Journal state is scoped to owner and device and retains the original checking account. Replayed receipts are applied idempotently by Nessie purchase ID.
 
-Pending phone purchases and account switches block new hardware settlement. Invalid/stale card confirmations are rejected and the app republishes its budget to undo optimistic display changes. Requests with uncertain outcomes remain recoverable; the app will not silently charge a different amount or a different account.
+Pending phone purchases and account switches block new hardware settlement. Invalid/stale card confirmations are rejected; the app republishes its unchanged budget with a matching warning verdict. Requests with uncertain outcomes remain recoverable; the app will not silently charge a different amount or a different account.
 
 ## Validation status
 
 Pure adapter/processor tests cover category mapping, cents, duplicate/restart recovery, saved receipts, failed storage writes, stale plans, phone-purchase blocking and account switches. These are local tests, not a physical NFC test. Ownership, deployed database rules, physical previews, heartbeat, and one end-to-end Nessie transaction must be verified with the device connected before claiming the demo is complete. No live purchase is created as part of setup.
+
+## Updated firmware result protocol
+
+The supplied updated sources are in `hardware/SmartWallet/`, excluding `secrets.h` (globally ignored). Copy `secrets.example.h` locally to `secrets.h` and use the existing device configuration when flashing. Importing these sources does not flash the ESP32.
+
+After a hold, the device displays WAITING FOR APP and leaves its balance unchanged. Flow sends this additional field inside `wallets/wallet-001/control/desired`, alongside the authoritative budget:
+
+```json
+{"transaction":{"id":"abcdef0123456789-3","mood":"happy","message":"Purchase verified"}}
+```
+
+The ID is the exact hardware event key (boot ID plus sequence), not the Nessie purchase ID or the longer backend request ID. Mood is happy only after the verified receipt has been applied and saved in Flow. Rejected outcomes use sad / Purchase not completed; uncertain outcomes use sad / Pending - check Flow and retain their saved request. These are transaction outcomes, not an automated assessment of spending habits. Messages are printable ASCII, at most 32 characters.
+
+New card previews are withheld while a confirmed request is unresolved. Results are persisted and can be replayed after a Firebase disconnect without creating another purchase. A duplicate event gets the same result. The firmware ignores results for any other boot/event and shows the result face for three seconds. It waits up to 20 seconds: a display timeout does not cancel a backend purchase; check Flow and retry the saved request rather than creating a replacement. Late verified budgets still update even if the face has timed out.
+
+Compatibility tests verify reply IDs, reply ordering after receipt application, uncertain outcomes, and replay after a failed Firebase result write. The firmware itself has not been compiled or flashed by this integration.

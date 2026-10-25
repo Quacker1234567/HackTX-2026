@@ -256,7 +256,7 @@ directory across restarts; it also tracks purchases absent from the reported bal
 - Settings preferences persist only on this device. Hide balances replaces
   dollar amounts with dots; purchase alerts and goal reminders do not send
   notifications yet.
-- ESP32 integration is a separate manual Wi-Fi adapter; see [its contract](docs/esp32.md).
+- ESP32 uses the Firebase Realtime Database bridge: send budgets, receive hardware confirmations, settle once in Nessie, and return the updated balance. See [hardware setup](docs/firebase-wallet.md).
 
 For a demo with no laptop terminals, the backend needs a permanent hosted address.
 That is a separate hosting change; installing an APK alone does not provide it.
