@@ -36,13 +36,13 @@ export default function Tools() {
     <View style={[styles.panel, { backgroundColor: colors.navy }]}><Text style={{ color: 'white', fontSize: 20, fontWeight: '600' }}>{budget.bank?.account.name ?? 'Your demo workspace'}</Text><Text style={{ color: '#DFEDF7', fontSize: 14, lineHeight: 22 }}>{budget.bank ? 'Nessie sandbox connected. Switch the sample customer in the backend, then import again in Connections.' : 'Connect a Nessie sample customer to bring in accounts and purchasing history.'}</Text></View>
     <Text style={styles.heading}>Simulation manager</Text>
     <View style={styles.panel}>
-      <Text style={styles.body}>Test restaurant, grocery, and transit states for the hardware display. These controls are placeholders and do not change your budget or send anything to a device.</Text>
+      <Text style={styles.body}>Choose a location and budget situation, then execute. These controls are placeholders and do not change your budget or send anything to a device.</Text>
       <Text style={styles.label}>Location</Text>
       <View style={styles.row}>{locations.map(item => <Choice key={item.id} label={item.label} selected={location === item.id} onPress={() => setLocation(item.id)} />)}</View>
-      <Button onPress={() => setMessage('Transaction preview is not wired yet. Nothing was sent to the device.')}>Preview transaction</Button>
       <Text style={styles.label}>Budget situation</Text>
-      <View style={styles.row}>{situations.map(item => <Choice key={item.id} label={item.label} selected={situation === item.id} onPress={() => { setSituation(item.id); setMessage('Budget situations are not wired yet. Your allocations were not changed.'); }} />)}</View>
-      <Button secondary onPress={() => { setLocation('restaurant'); setSituation('unused'); setMessage('Reset is not wired yet. Your budget values were not changed.'); }}>Reset</Button>
+      <View style={styles.row}>{situations.map(item => <Choice key={item.id} label={item.label} selected={situation === item.id} onPress={() => setSituation(item.id)} />)}</View>
+      <Button onPress={() => setMessage('Execute is not wired yet. Nothing was sent to the device and your budget was not changed.')}>Execute</Button>
+      <Button secondary onPress={() => { setLocation('restaurant'); setSituation('unused'); setMessage('Reset is not wired yet. Your budget values were not changed.'); }}>Reset to default</Button>
       {!!message && <Text accessibilityLiveRegion="polite" style={styles.notice}>{message}</Text>}
     </View>
     <View style={[styles.panel, { padding: 0, overflow: 'hidden' }]}>{tools.map((tool, index) => <Pressable key={tool.path} accessibilityRole="button" onPress={() => router.navigate(tool.path)} android_ripple={{ color: '#E6F0F7' }} style={{ padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderTopWidth: index ? 1 : 0, borderTopColor: colors.paper }}><Icon name={tool.icon as IconName} /><View style={{ flex: 1, gap: 5 }}><Text style={styles.heading}>{tool.name}</Text><Text style={{ color: colors.muted, lineHeight: 20, fontSize: 14 }}>{tool.description}</Text></View><Icon name="arrow" size={18} color={colors.muted} /></Pressable>)}</View>
