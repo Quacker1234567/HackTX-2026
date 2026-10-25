@@ -9,7 +9,6 @@ const tools = [
   { path: '/banking', name: 'Banking', description: 'Accounts, spending patterns and budget plans', icon: 'bank' },
   { path: '/connections', name: 'Connections', description: 'Nessie import, Firebase and ESP32 display', icon: 'tools' },
   { path: '/checkout', name: 'Test a purchase', description: 'Simulate a location, preview and confirm spending', icon: 'purchase' },
-  { path: '/nessie-purchase', name: 'Nessie purchase', description: 'Create a sandbox transaction and refresh bank history', icon: 'purchase' },
   { path: '/transactions', name: 'Transaction history', description: 'Imported purchases, income and local demo activity', icon: 'history' },
 ] as const;
 const locations = [

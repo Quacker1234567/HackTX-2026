@@ -1,7 +1,7 @@
 # Nessie transaction demo
 
-This adds backend behavior and a separate Tools screen. The original local
-checkout simulator and the main visual design are preserved for the UI teammate.
+Checkout can write a real purchase to the Nessie sandbox, or stay entirely on
+the device in **Rehearsal only** mode. The visual design is unchanged.
 
 ## Run the demo
 
@@ -15,8 +15,7 @@ checkout simulator and the main visual design are preserved for the UI teammate.
    Confirm the complete bill list if the sandbox bill reader is unavailable.
 5. Open **Tools → Test a purchase**, choose **Campus Cafe**, leave the mode on
    **Send to Nessie**, and enter a whole-dollar amount your category can cover
-   (for example, $35 if at least $35 remains). **Tools → Nessie purchase** is the
-   same flow without the preview visuals, kept for checking a saved request.
+   (for example, $1 to keep a live check cheap).
 6. Tap **Preview purchase**, inspect the cutout and category remainder, then
    **Confirm Nessie purchase**. Only this final button submits the sandbox write.
 7. A successful result verifies the stored transaction, refreshes bank data and
@@ -101,9 +100,19 @@ which previously created Flow purchases the sandbox balance failed to reflect.
 The current endpoint is local-only; Firebase Functions deployment would need a
 shared durable journal implementation before exposing purchase writes.
 
-The physical Android confirmation/refresh flow still needs a device check.
-Backend behavior was live-checked directly with the private sandbox key; this is
-not a claim that the phone’s full authenticated HTTP flow was live-tested.
+## Device verification (October 25, 2026)
+
+The complete flow was exercised from Expo Go on Android, through the Cloudflare
+tunnel and the authenticated callable path:
+
+- A rehearsal purchase changed the device budget and sent nothing to Nessie.
+- A $1 Campus Cafe purchase was created and verified from the phone, taking the
+  account from 32 to 33 purchases.
+- Banking showed its $1 reserve, and **Rehearsal — ignore** released it back to
+  $0.00 from the device.
+
+This closes the previous gap: the phone's full authenticated HTTP flow for both
+purchase creation and reconciliation is now live-tested, not just the backend.
 
 ## Contract for the UI teammate
 
@@ -113,12 +122,14 @@ not a claim that the phone’s full authenticated HTTP flow was live-tested.
 - Outcomes: `created` (verified receipt plus optional refreshed snapshot),
   `uncertain`, `rejected`, or `mismatch`.
 - The request ID must remain unchanged for retries, and the original Firebase
-  identity must be preserved. New UI should retain the durable pending request
-  and receipt behavior shown in `nessie-purchase.tsx`.
+  identity must be preserved. Do not call this service directly from new UI: use
+  the `useNessiePurchase` hook, which owns the durable pending request, the
+  recovery of a saved receipt, and the one-at-a-time request guarantee.
 - `BudgetProvider.applyNessiePurchase(transaction, snapshot)` persists the receipt
   and bank refresh while preventing duplicate category charges.
 - `BankSnapshot.unreflectedPurchaseCents` is a separate planning reserve, not a
   replacement bank balance. Domain proposal logic subtracts it exactly once.
 
-The existing Test a purchase route continues to be purely local. Hardware
-updates and real geolocation are separate work.
+Checkout owns both paths now; the separate Nessie purchase screen was removed
+because it duplicated the same hook. Hardware updates and real geolocation are
+separate work.
