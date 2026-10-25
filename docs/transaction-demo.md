@@ -39,8 +39,26 @@ an account-based plan when demonstrating allocation calculations.
   the actual reported value. Do not subtract all imported history again.
 - Both smoke records were retained. No original history, customer, merchant,
   account, or bill was deleted or recreated.
-- The successful $1 receipt has a $1 unreflected-balance reserve in this laptop’s
+- The successful $1 receipt held a $1 unreflected-balance reserve in this laptop’s
   private purchase journal. The journal is not shared by Git.
+
+## Live reconciliation check (October 25, 2026)
+
+The $1 debit above was reviewed as **rehearsal** against the live sandbox, which
+exercised `nessieReconcile` end to end for the first time:
+
+- The reserve went from $1.00 to $0.00 and the outstanding list emptied.
+- The purchase ID is now reported in `voidedPurchaseIds`, so it no longer informs
+  90-day category pacing.
+- The upstream record is intact at $1.00 and the account still holds 32
+  purchases. Nothing was deleted from Nessie.
+- Repeating the review is idempotent: the reserve stays released and no second
+  write occurs.
+- The journal entry predates the key-from-filename change and was read correctly
+  with no migration, confirming older records stay compatible.
+
+This laptop's journal currently has no outstanding reserves. The $0.01 smoke
+record remains unverified and has never reserved funds.
 
 If a later reported balance changes while those reserves remain, planning warns
 for journal review rather than guessing whether the debits settled.
