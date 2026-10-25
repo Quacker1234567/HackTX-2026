@@ -10,3 +10,4 @@ firebase-debug.log
 .seed-state.json
 .funded-demo-state.json
 .claude/
+.purchase-journal/

@@ -26,6 +26,7 @@ export default function Banking() {
   return <ScrollView contentContainerStyle={styles.page}>
     <Text style={styles.title}>Your banking picture.</Text>
     <Text style={styles.notice}>Nessie mock data · Imported {new Date(bank.importedAt).toLocaleString()}</Text>
+    {!!bank.unreflectedPurchaseCents && <Text style={styles.notice}>{money(bank.unreflectedPurchaseCents)} reserved for verified Flow purchases not reflected in Nessie’s reported balance. This reserve is deducted once when planning.</Text>}
     {bank.warnings.map(warning => <Text key={warning} accessibilityRole="alert" style={styles.notice}>{warning}</Text>)}
     <View style={styles.panel}><Text style={styles.heading}>{bank.account.name}</Text><Text style={styles.title}>{money(bank.account.balanceCents)}</Text><Text style={styles.body}>{bank.account.type} balance reported by Nessie. History is already reflected in this balance.</Text></View>
     <Text style={styles.heading}>Spending patterns · Last 90 days</Text>
@@ -69,6 +70,7 @@ export default function Banking() {
       <Text style={styles.heading}>Plan until {proposal.payday}</Text>
       <Text style={styles.body}>Account balance: {money(proposal.balanceCents)}{'\n'}Upcoming bills reserved: −{money(proposal.billsCents)}{'\n'}Goal contribution reserved: −{money(proposal.savingsCents)}{'\n'}Available for category spending: {money(proposal.availableCents)}</Text>
       {proposal.allocations.map(c => <Text key={c.id} style={styles.body}>{c.name}: {money(c.limit)}</Text>)}
+      {proposal.unallocatedCents > 0 && <Text style={styles.body}>Unallocated: {money(proposal.unallocatedCents)}{'\n'}Categories are capped at your recent spending pace, so this is left over. Raise a limit in Budget to use it.</Text>}
       {proposal.warnings.map(w => <Text key={w} style={styles.notice}>{w}</Text>)}
       <Text style={styles.body}>Approval starts a new local demo spending cycle and clears existing demo purchases. Imported bank history is kept. Bills and savings are reservations; no money is transferred.</Text>
       <Button disabled={!proposal.canApprove} onPress={() => { approvePlan(proposal); setReviewing(false); setNotice('Budget approved. Open Budget to try a purchase.'); }}>Approve and start new cycle</Button>

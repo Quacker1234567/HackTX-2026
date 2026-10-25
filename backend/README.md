@@ -19,6 +19,10 @@ Unavailable bill data is explicitly marked incomplete; see the context file for
 manual review and planning limitations. Purchase confirmation is currently local
 app simulation and does not write a new Nessie transaction.
 
+The local server now also exposes `nessiePurchase`, with a durable disk journal,
+verified receipts and balance reserves for sandbox purchases. This write endpoint
+is not deployed to Firebase Functions. See [the demo guide](../docs/transaction-demo.md).
+
 `seed.mjs` and `fund-demo.mjs` write shared sandbox data and use private local
 journals. Do not run them as ordinary startup steps after cloning.
 
