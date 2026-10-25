@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Screen, Progress } from '../components/design';
-import { Button, colors, Field, styles } from '../components/ui';
-import { dailyGoalReserve, displayMoney, money, parseMoney } from '../domain/budget';
+import { Screen, GoalRing } from '../components/design';
+import { Button, Field, Group, GroupRow, Money, Notice, colors, styles } from '../components/ui';
+import { displayMoney, parseMoney } from '../domain/budget';
 import { useBudget } from '../state/BudgetProvider';
 
 export default function Goals() {
@@ -13,27 +13,42 @@ export default function Goals() {
   const [amount, setAmount] = useState('');
   const [days, setDays] = useState('');
   const [message, setMessage] = useState('');
-  return <Screen title={editing ? 'Edit goal' : 'Your goal'} subtitle={editing ? 'Give your savings a destination.' : 'Small steps. Something worth saving for.'}>
-    {!ready ? <Text style={styles.body}>Loading your goal…</Text> : editing ? <View style={styles.panel}>
-      <Field label="Goal name" value={name} onChangeText={setName} />
-      <Field label="Target amount ($)" value={amount} onChangeText={setAmount} numeric />
-      <Field label="Days to reach goal" value={days} onChangeText={setDays} numeric />
-      <Text style={styles.body}>Your {money(goal.saved)} already saved stays in this goal. Review a new plan in Banking to change your category allocations.</Text>
+  const remaining = Math.max(0, goal.target - goal.saved);
+  const leftover = `${displayMoney(remaining, settings.hideBalances)} left`;
+  const saved = displayMoney(goal.saved, settings.hideBalances);
+  const target = displayMoney(goal.target, settings.hideBalances);
+  return <Screen title={editing ? 'Edit goal' : goal.name} mark={false} center={!editing}>
+    {!ready ? <Text style={styles.body}>Loading your goal…</Text> : editing ? <View style={{ gap: 16 }}>
+      <Group>
+        <GroupRow>
+          <Field label="Goal name" value={name} onChangeText={setName} />
+        </GroupRow>
+        <GroupRow>
+          <Field label="Target amount ($)" value={amount} onChangeText={setAmount} numeric />
+        </GroupRow>
+        <GroupRow last>
+          <Field label="Days to reach goal" value={days} onChangeText={setDays} numeric />
+        </GroupRow>
+      </Group>
       <Button onPress={() => {
-        const target = parseMoney(amount); const duration = Number(days);
-        if (!target || !name.trim() || !Number.isSafeInteger(duration) || duration < 1 || duration > 3650) { setMessage('Enter a name, positive target, and 1–3650 whole days.'); return; }
-        setGoal({ ...goal, name: name.trim(), target, days: duration }); setEditing(false); setMessage('Goal saved.');
-      }}>Save goal</Button><Button secondary onPress={() => { setEditing(false); setMessage(''); }}>Cancel</Button>
-    </View> : <View style={[styles.panel, { minHeight: 430, justifyContent: 'center', gap: 28, paddingVertical: 42 }]}>
-      <Text style={{ color: colors.ink, fontSize: 40, letterSpacing: -1.5, fontWeight: '700', textAlign: 'center' }}>{goal.name}</Text>
-      <View style={{ alignItems: 'center', gap: 8 }}>
-        <Text style={[styles.heading, { textAlign: 'center' }]}>{displayMoney(goal.saved, settings.hideBalances)} / {displayMoney(goal.target, settings.hideBalances)}</Text>
-        <Text style={styles.body}>{goal.saved >= goal.target ? 'Goal reached' : `${goal.days} days to go`}</Text>
+        const nextTarget = parseMoney(amount); const duration = Number(days);
+        if (!nextTarget || !name.trim() || !Number.isSafeInteger(duration) || duration < 1 || duration > 3650) { setMessage('Enter a name, positive target, and 1–3650 whole days.'); return; }
+        setGoal({ ...goal, name: name.trim(), target: nextTarget, days: duration }); setEditing(false); setMessage('Goal saved.');
+      }}>Save goal</Button>
+      <Button secondary onPress={() => { setEditing(false); setMessage(''); }}>Cancel</Button>
+    </View> : <View style={{ width: '100%', maxWidth: 360, alignSelf: 'center', gap: 20 }}>
+      <View accessibilityLabel={`${goal.name}: ${leftover}. ${saved} / ${target} saved`} style={styles.goalCard}>
+        <View style={styles.navyHairline} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <GoalRing value={goal.target ? goal.saved / goal.target : 0} label="Goal saved">
+            <Money size={36} weight="700" color={colors.ink}>{displayMoney(remaining, settings.hideBalances)}</Money>
+            <Text style={[styles.body, { color: colors.ink }]}>left</Text>
+          </GoalRing>
+          <Text style={styles.heading}>{`${saved} / ${target}`}</Text>
+        </View>
       </View>
-      <Progress value={goal.target ? goal.saved / goal.target : 0} label="Saving goal progress" />
-      <Text style={[styles.body, { textAlign: 'center' }]}>{displayMoney(dailyGoalReserve(goal), settings.hideBalances)} per day to reach your target</Text>
       <Button secondary onPress={() => { setName(goal.name); setAmount(String(goal.target / 100)); setDays(String(goal.days)); setMessage(''); setEditing(true); }}>Edit goal</Button>
     </View>}
-    {!!message && <Text accessibilityLiveRegion="polite" style={styles.notice}>{message}</Text>}
+    {!!message && <Notice>{message}</Notice>}
   </Screen>;
 }

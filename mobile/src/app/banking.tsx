@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useBudget } from '../state/BudgetProvider';
-import { Button, Field, styles } from '../components/ui';
+import { AmountRow, Button, Chip, colors, Field, Group, GroupRow, Money, NavyFace, Notice, styles } from '../components/ui';
+import { SectionTitle, StackPage } from '../components/design';
 import { analyzeHistory, BankSnapshot, confirmManualBills, dayKey, Preferences, proposeBudget, validDate } from '../domain/banking';
 import { money, parseMoney } from '../domain/budget';
 import { reconcileNessieDebit } from '../services/banking';
@@ -32,75 +33,169 @@ export default function Banking() {
   const preferences: Preferences = { diningReduction: Number(reduction), protectedCategory: protect };
   const history = useMemo(() => bank ? analyzeHistory(bank) : null, [bank]);
   const proposal = bank ? proposeBudget(bank, budget.goal, preferences) : null;
-  if (!bank || !history || !proposal) return <ScrollView contentContainerStyle={styles.page}><Text style={styles.title}>Your banking picture.</Text><Text style={styles.body}>Import a Nessie account from Connections to see balances, history, bills, and a proposed budget.</Text></ScrollView>;
+  if (!bank || !history || !proposal) return <StackPage><Text style={styles.body}>Import a bank account from Connections to see this picture.</Text></StackPage>;
   const billNeedsReview = bank.billReviewRequired || bank.warnings.some(w => w.startsWith('Nessie bills could not be imported.'));
-  return <ScrollView contentContainerStyle={styles.page}>
-    <Text style={styles.title}>Your banking picture.</Text>
-    <Text style={styles.notice}>Nessie mock data · Imported {new Date(bank.importedAt).toLocaleString()}</Text>
-    {!!bank.unreflectedPurchaseCents && <Text style={styles.notice}>{money(bank.unreflectedPurchaseCents)} reserved for verified Flow purchases not reflected in Nessie’s reported balance. This reserve is deducted once when planning.</Text>}
-    {!!bank.flowDebits?.length && <View style={styles.panel}>
-      <Text style={styles.heading}>Flow purchases awaiting review</Text>
-      <Text style={styles.body}>These were written to Nessie and verified, but its reported balance did not change. Reviewing one releases its reserve. Nothing is deleted from Nessie either way.</Text>
-      {bank.flowDebits.map(debit => <View key={debit.purchaseId} style={{ gap: 8, borderTopWidth: 1, borderTopColor: '#E7EEF4', paddingTop: 12 }}>
-        <Text style={styles.body}>{money(debit.amountCents)}{debit.date ? ` · ${debit.date}` : ''}</Text>
-        <View style={styles.row}>
-          <Button disabled={busy} onPress={() => void settle(debit.purchaseId, 'settled')}>Settled in balance</Button>
-          <Button secondary disabled={busy} onPress={() => void settle(debit.purchaseId, 'void')}>Rehearsal — ignore</Button>
-        </View>
-      </View>)}
-      <Text style={{ color: '#6B7F8D', fontSize: 12, lineHeight: 19 }}>Settled: the reported balance now accounts for it, and it keeps informing category pacing. Rehearsal: it stays in Nessie history but stops affecting your budget.</Text>
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const purchases = bank.purchases.slice().sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).slice(0, 20);
+  return <StackPage>
+    <NavyFace title={bank.account.name}>
+      <Money size={40} color={colors.white} weight="700">{money(bank.account.balanceCents)}</Money>
+    </NavyFace>
+    <Notice>Nessie mock data · Imported {new Date(bank.importedAt).toLocaleString()}</Notice>
+    {!!bank.unreflectedPurchaseCents && <Notice>{money(bank.unreflectedPurchaseCents)} reserved for verified Flow purchases not reflected in Nessie’s reported balance. This reserve is deducted once when planning.</Notice>}
+    {bank.warnings.map(warning => <Notice key={warning} tone="alert">{warning}</Notice>)}
+    {!!bank.flowDebits?.length && <View style={{ gap: 16 }}>
+      <SectionTitle>Awaiting review</SectionTitle>
+      <Group>
+        {bank.flowDebits.map((debit, index) => <GroupRow key={debit.purchaseId} last={index === bank.flowDebits!.length - 1}>
+          <AmountRow label={debit.date ?? 'Purchase'}>
+            <Money size={17} weight="600">{money(debit.amountCents)}</Money>
+          </AmountRow>
+          <View style={styles.row}>
+            <Button disabled={busy} onPress={() => void settle(debit.purchaseId, 'settled')}>Settled in balance</Button>
+            <Button secondary disabled={busy} onPress={() => void settle(debit.purchaseId, 'void')}>Rehearsal — ignore</Button>
+          </View>
+        </GroupRow>)}
+      </Group>
     </View>}
-    {bank.warnings.map(warning => <Text key={warning} accessibilityRole="alert" style={styles.notice}>{warning}</Text>)}
-    <View style={styles.panel}><Text style={styles.heading}>{bank.account.name}</Text><Text style={styles.title}>{money(bank.account.balanceCents)}</Text><Text style={styles.body}>{bank.account.type} balance reported by Nessie. History is already reflected in this balance.</Text></View>
-    <Text style={styles.heading}>Spending patterns · Last 90 days</Text>
-    <Text style={styles.body}>{history.count} completed purchases totaling {money(history.totalCents)}. {history.ignoredCount} pending, undated, or older purchases excluded.</Text>
-    {history.byCategory.map(c => <Text key={c.id} style={styles.body}>{c.id}: {money(c.cents)}</Text>)}
-    <Text style={styles.body}>Completed deposits: {money(history.incomeCents)} across {history.incomeCount} deposits.{history.estimatedPaydayGap ? ` Historical deposit spacing: about ${history.estimatedPaydayGap} days; this plan covers the calendar month.` : ' Add more dated deposits to estimate income cadence.'}</Text>
-    <View style={styles.panel}><Text style={styles.heading}>Average spending by day</Text>{history.weekdays.map(d => <Text key={d.day} style={styles.body}>{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.day]}: {money(d.averageCents)}</Text>)}<Text style={styles.body}>Average per calendar weekday in the 90-day window, including days with no purchases.</Text></View>
-    <Text style={styles.heading}>Bills</Text>
-    {bank.billSource === 'manual' && <Text style={styles.notice}>Manually entered and confirmed bills. These are used for planning because the Nessie bill reader is unavailable. Re-importing bank data requires reviewing bills again.</Text>}
-    {billNeedsReview && <View style={styles.panel}>
-      <Text style={styles.heading}>Enter bills while Nessie is unavailable</Text>
-      <Text style={styles.body}>Add every upcoming bill for this account. This saves a local planning list; it does not create or change bills in Nessie.</Text>
-      <Field label="Bill name" value={billName} onChangeText={setBillName} />
-      <Field label="Bill amount ($)" value={billAmount} onChangeText={setBillAmount} numeric />
-      <Field label="Bill due date (YYYY-MM-DD)" value={billDate} onChangeText={setBillDate} />
-      <Button secondary onPress={() => {
-        const cents = parseMoney(billAmount);
-        if (!billName.trim() || !cents || !validDate(billDate) || billDate < dayKey(new Date())) { setBillError('Enter a name, positive amount, and a due date today or later.'); return; }
-        setManualBills(items => [...items, { id: `manual-${Date.now()}-${items.length}`, payee: billName.trim(), cents, date: billDate, status: 'pending' }]);
-        setBillName(''); setBillAmount(''); setBillDate(''); setBillError('');
-      }}>Add bill to list</Button>
-      {manualBills.map(b => <View key={b.id} style={styles.row}><Text style={styles.body}>{b.payee}: {money(b.cents)} · {b.date}</Text><Button secondary onPress={() => setManualBills(items => items.filter(item => item.id !== b.id))}>Remove</Button></View>)}
-      <Text style={styles.body}>Confirm only when this list covers all upcoming obligations. Missing bills would make the spending estimate too high.</Text>
-      <Button disabled={!!(billName || billAmount || billDate)} onPress={() => {
-        importBank(confirmManualBills(bank, manualBills)); setReviewing(false); setManualBills([]); setBillError('');
-        setNotice('Bill list confirmed for local planning. You can now review a budget proposal.');
-      }}>{manualBills.length ? 'Confirm this is my complete bill list' : 'Confirm I have no upcoming bills'}</Button>
-      {!!billError && <Text accessibilityRole="alert" style={styles.notice}>{billError}</Text>}
-    </View>}
-    {bank.bills.length ? bank.bills.map(b => <Text key={b.id} style={styles.body}>{b.payee}: {money(b.cents)} · {b.date ?? 'Date missing'} · {b.status}</Text>) : <Text style={styles.body}>{billNeedsReview ? 'Bill data is incomplete. Add and confirm the list above.' : 'No upcoming bills in the confirmed list.'}</Text>}
-    <View style={styles.panel}>
-      <Text style={styles.heading}>How do you want to spend?</Text>
-      <Field label="Reduce dining by (%)" value={reduction} onChangeText={v => { setReduction(v); setReviewing(false); }} numeric />
-      <Text style={styles.body}>Which category should keep its historical pace first?</Text>
-      <View style={styles.row}>{['groceries', 'transport', 'dining'].map(id => <Button key={id} secondary={protect !== id} onPress={() => { setProtect(id); setReviewing(false); }}>{id}</Button>)}</View>
-      <Text style={styles.body}>Savings follows the daily pace of your goal. Categories use completed purchases from the last 90 days. Unallocated money goes to Other as a flexible buffer. No AI is used for these calculations.</Text>
-      <Button onPress={() => { setReviewing(true); setNotice(''); }}>Review proposed budget</Button>
+    <View style={{ gap: 16 }}>
+      <SectionTitle>Spending</SectionTitle>
+      <Group>
+        {history.byCategory.map((c, index) => <GroupRow key={c.id} last={false}>
+          <AmountRow label={c.id}>
+            <Money size={17} weight="600">{money(c.cents)}</Money>
+          </AmountRow>
+        </GroupRow>)}
+        <GroupRow last>
+          <AmountRow label="Deposits">
+            <Money size={17} weight="600" color={colors.blue}>{money(history.incomeCents)}</Money>
+          </AmountRow>
+        </GroupRow>
+      </Group>
     </View>
-    {reviewing && <View style={styles.panel}>
-      <Text style={styles.heading}>Plan for {proposal.periodLabel}</Text>
-      <Text style={styles.body}>Account balance: {money(proposal.balanceCents)}{'\n'}Upcoming bills reserved: −{money(proposal.billsCents)}{'\n'}Goal contribution reserved: −{money(proposal.savingsCents)}{'\n'}Available for category spending: {money(proposal.availableCents)}</Text>
-      {proposal.allocations.map(c => <Text key={c.id} style={styles.body}>{c.name}: {money(c.limit)}</Text>)}
-      {proposal.unallocatedCents > 0 && <Text style={styles.body}>Unallocated: {money(proposal.unallocatedCents)}{'\n'}Categories are capped at your recent spending pace, so this is left over. Raise a limit in Budget to use it.</Text>}
-      {proposal.warnings.map(w => <Text key={w} style={styles.notice}>{w}</Text>)}
-      <Text style={styles.body}>Approval starts a new local demo spending cycle and clears existing demo purchases. Imported bank history is kept. Bills and savings are reservations; no money is transferred.</Text>
-      <Button disabled={!proposal.canApprove} onPress={() => { approvePlan(proposal); setReviewing(false); setNotice('Budget approved. Open Budget to try a purchase.'); }}>Approve and start new cycle</Button>
-      <Button secondary onPress={() => setReviewing(false)}>Keep current budget</Button>
+    <View style={{ gap: 16 }}>
+      <SectionTitle>Average by day</SectionTitle>
+      <Group>
+        {history.weekdays.map((d, index) => <GroupRow key={d.day} last={index === history.weekdays.length - 1}>
+          <AmountRow label={weekdays[d.day]}>
+            <Money size={17} weight="600">{money(d.averageCents)}</Money>
+          </AmountRow>
+        </GroupRow>)}
+      </Group>
+    </View>
+    <View style={{ gap: 16 }}>
+      <SectionTitle>Bills</SectionTitle>
+      {bank.billSource === 'manual' && <Notice>Manually entered and confirmed bills. These are used for planning because the Nessie bill reader is unavailable. Re-importing bank data requires reviewing bills again.</Notice>}
+      {billNeedsReview && <Group>
+        <GroupRow>
+          <Text style={styles.heading}>Enter bills while Nessie is unavailable</Text>
+        </GroupRow>
+        <GroupRow>
+          <Field label="Bill name" value={billName} onChangeText={setBillName} />
+        </GroupRow>
+        <GroupRow>
+          <Field label="Bill amount ($)" value={billAmount} onChangeText={setBillAmount} numeric />
+        </GroupRow>
+        <GroupRow>
+          <Field label="Bill due date (YYYY-MM-DD)" value={billDate} onChangeText={setBillDate} />
+        </GroupRow>
+        <GroupRow>
+          <Button secondary onPress={() => {
+            const cents = parseMoney(billAmount);
+            if (!billName.trim() || !cents || !validDate(billDate) || billDate < dayKey(new Date())) { setBillError('Enter a name, positive amount, and a due date today or later.'); return; }
+            setManualBills(items => [...items, { id: `manual-${Date.now()}-${items.length}`, payee: billName.trim(), cents, date: billDate, status: 'pending' }]);
+            setBillName(''); setBillAmount(''); setBillDate(''); setBillError('');
+          }}>Add bill to list</Button>
+        </GroupRow>
+        {manualBills.map(b => <GroupRow key={b.id}>
+          <AmountRow label={b.payee}>
+            <Money size={17} weight="600">{money(b.cents)}</Money>
+          </AmountRow>
+          <Button secondary onPress={() => setManualBills(items => items.filter(item => item.id !== b.id))}>Remove</Button>
+        </GroupRow>)}
+        <GroupRow last>
+          <Button disabled={!!(billName || billAmount || billDate)} onPress={() => {
+            importBank(confirmManualBills(bank, manualBills)); setReviewing(false); setManualBills([]); setBillError('');
+            setNotice('Bill list confirmed for local planning. You can now review a budget proposal.');
+          }}>{manualBills.length ? 'Confirm this is my complete bill list' : 'Confirm I have no upcoming bills'}</Button>
+          {!!billError && <Notice tone="alert">{billError}</Notice>}
+        </GroupRow>
+      </Group>}
+      {!!bank.bills.length && <Group>
+        {bank.bills.map((b, index) => <GroupRow key={b.id} last={index === bank.bills.length - 1}>
+          <AmountRow label={b.payee}>
+            <Money size={17} weight="600">{money(b.cents)}</Money>
+          </AmountRow>
+        </GroupRow>)}
+      </Group>}
+    </View>
+    <View style={{ gap: 16 }}>
+      <SectionTitle>How do you want to spend?</SectionTitle>
+      <Group>
+        <GroupRow>
+          <Field label="Reduce dining by (%)" value={reduction} onChangeText={v => { setReduction(v); setReviewing(false); }} numeric />
+        </GroupRow>
+        <GroupRow>
+          <Text style={styles.label}>Protect</Text>
+          <View style={styles.row}>{['groceries', 'transport', 'dining'].map(id => <Chip key={id} label={id} selected={protect === id} onPress={() => { setProtect(id); setReviewing(false); }} />)}</View>
+        </GroupRow>
+        <GroupRow last>
+          <Button onPress={() => { setReviewing(true); setNotice(''); }}>Review proposed budget</Button>
+        </GroupRow>
+      </Group>
+    </View>
+    {reviewing && <View style={{ gap: 16 }}>
+      <SectionTitle>Plan for {proposal.periodLabel}</SectionTitle>
+      <Group>
+        <GroupRow>
+          <AmountRow label="Balance">
+            <Money size={17} weight="600">{money(proposal.balanceCents)}</Money>
+          </AmountRow>
+        </GroupRow>
+        <GroupRow>
+          <AmountRow label="Bills">
+            <Money size={17} weight="600">−{money(proposal.billsCents)}</Money>
+          </AmountRow>
+        </GroupRow>
+        <GroupRow>
+          <AmountRow label="Savings">
+            <Money size={17} weight="600">−{money(proposal.savingsCents)}</Money>
+          </AmountRow>
+        </GroupRow>
+        <GroupRow>
+          <AmountRow label="Available">
+            <Money size={17} weight="600">{money(proposal.availableCents)}</Money>
+          </AmountRow>
+        </GroupRow>
+        {proposal.allocations.map(c => <GroupRow key={c.id}>
+          <AmountRow label={c.name}>
+            <Money size={17} weight="600">{money(c.limit)}</Money>
+          </AmountRow>
+        </GroupRow>)}
+        {proposal.unallocatedCents > 0 && <GroupRow>
+          <AmountRow label="Unallocated">
+            <Money size={17} weight="600">{money(proposal.unallocatedCents)}</Money>
+          </AmountRow>
+        </GroupRow>}
+        {proposal.warnings.map(w => <GroupRow key={w}><Notice>{w}</Notice></GroupRow>)}
+        <GroupRow>
+          <Button disabled={!proposal.canApprove} onPress={() => { approvePlan(proposal); setReviewing(false); setNotice('Budget approved. Open Budget to try a purchase.'); }}>Approve and start new cycle</Button>
+        </GroupRow>
+        <GroupRow last>
+          <Button secondary onPress={() => setReviewing(false)}>Keep current budget</Button>
+        </GroupRow>
+      </Group>
     </View>}
-    <Text style={styles.heading}>Imported purchases</Text>
-    {bank.purchases.slice().sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')).slice(0, 20).map(p => <Text key={p.id} style={styles.body}>{p.merchant} · {money(p.cents)} · {p.date ?? 'No date'} · {p.status}</Text>)}
-    {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
-  </ScrollView>;
+    <View style={{ gap: 16 }}>
+      <SectionTitle>Imported purchases</SectionTitle>
+      <Group>
+        {purchases.length ? purchases.map((p, index) => <GroupRow key={p.id} last={index === purchases.length - 1}>
+          <AmountRow label={p.merchant}>
+            <Money size={17} weight="600">{money(p.cents)}</Money>
+          </AmountRow>
+        </GroupRow>) : <GroupRow last><Text style={styles.body}>No imported purchases.</Text></GroupRow>}
+      </Group>
+    </View>
+    {!!notice && <Notice>{notice}</Notice>}
+  </StackPage>;
 }
-
